@@ -23,10 +23,17 @@ export async function POST(req: NextRequest) {
       dbUser,
     })
 
+    const formData = await req.formData()
+    const returnToRaw = formData.get("return_to") as string | null
+    const returnTo =
+      returnToRaw && returnToRaw.startsWith("/") && !returnToRaw.includes("://")
+        ? returnToRaw
+        : "/account"
+
     const appUrl = getRequestOrigin(req)
     const session = await stripe.billingPortal.sessions.create({
       customer: syncedSubscription.stripeCustomerId,
-      return_url: `${appUrl}/account`,
+      return_url: `${appUrl}${returnTo}`,
     })
 
     return NextResponse.redirect(session.url, { status: 303 })

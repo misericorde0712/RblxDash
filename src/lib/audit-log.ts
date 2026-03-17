@@ -12,6 +12,7 @@ export const AUDIT_LOG_EVENT_LABELS = {
   "member.role_changed": "Member role changed",
   "member.removed": "Member removed",
   "game.created": "Game created",
+  "game.deleted": "Game deleted",
   "game.secret_rotated": "Game secret rotated",
   "player.note_added": "Player note added",
   "player.sanction_added": "Player sanction added",

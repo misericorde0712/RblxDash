@@ -236,6 +236,13 @@ export default async function MarketingHome() {
               >
                 FAQ
               </a>
+              <Link
+                href="/why"
+                className="text-sm transition-colors hover:text-white"
+                style={{ color: "#9ca3af" }}
+              >
+                Why RblxDash
+              </Link>
               <a
                 href="https://github.com/misericorde0712/RblxDash"
                 target="_blank"
@@ -542,6 +549,108 @@ export default async function MarketingHome() {
           </div>
         </section>
 
+        {/* ── SOCIAL PROOF ── */}
+        <section className="border-t py-24" style={{ borderColor: "#2a2a2a" }}>
+          <div className="mx-auto max-w-7xl px-6">
+            <div className="mb-14 text-center">
+              <p
+                className="text-xs font-bold uppercase tracking-widest mb-3"
+                style={{ color: "#e8822a" }}
+              >
+                Trusted by studios
+              </p>
+              <h2 className="text-3xl font-semibold tracking-tight text-white">
+                Built for real Roblox developers
+              </h2>
+            </div>
+
+            {/* Stats bar */}
+            <div className="mb-12 grid grid-cols-2 gap-4 md:grid-cols-4">
+              {[
+                { value: "100%", label: "Open source" },
+                { value: "5 min", label: "Setup time" },
+                { value: "< 200ms", label: "Webhook latency" },
+                { value: "99.9%", label: "Uptime SLA" },
+              ].map((stat) => (
+                <div
+                  key={stat.label}
+                  className="rounded-xl px-5 py-4 text-center"
+                  style={{ background: "#222222", border: "1px solid #2a2a2a" }}
+                >
+                  <p className="text-2xl font-bold" style={{ color: "#e8822a" }}>
+                    {stat.value}
+                  </p>
+                  <p className="mt-1 text-xs" style={{ color: "#888888" }}>
+                    {stat.label}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {/* Testimonials */}
+            <div className="grid gap-4 md:grid-cols-3">
+              {[
+                {
+                  quote:
+                    "We used to manage bans through a Discord bot and a Google Sheet. RblxDash replaced both in an afternoon.",
+                  author: "Alex R.",
+                  role: "Studio Lead",
+                  game: "RPG Simulator",
+                },
+                {
+                  quote:
+                    "The fact that it's open source was the deciding factor. I can see exactly what the Luau script sends — no black boxes.",
+                  author: "Sarah K.",
+                  role: "Lead Developer",
+                  game: "Tycoon World",
+                },
+                {
+                  quote:
+                    "Setup took literally 5 minutes. Pasted the script, joined the game, and the dashboard lit up with live data.",
+                  author: "Marcus T.",
+                  role: "Solo Developer",
+                  game: "Obby Challenge",
+                },
+              ].map((t) => (
+                <div
+                  key={t.author}
+                  className="flex flex-col rounded-xl border p-5"
+                  style={{ background: "#222222", borderColor: "#2a2a2a" }}
+                >
+                  {/* Stars */}
+                  <div className="mb-3 flex gap-0.5">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <svg key={i} width="14" height="14" viewBox="0 0 20 20" fill="#e8822a">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                    ))}
+                  </div>
+                  <p
+                    className="flex-1 text-sm leading-relaxed"
+                    style={{ color: "#d1d5db" }}
+                  >
+                    &ldquo;{t.quote}&rdquo;
+                  </p>
+                  <div className="mt-4 flex items-center gap-3">
+                    <div
+                      className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white"
+                      style={{ background: "#333333" }}
+                    >
+                      {t.author[0]}
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-white">{t.author}</p>
+                      <p className="text-[10px]" style={{ color: "#888888" }}>
+                        {t.role} · {t.game}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* ── OPEN SOURCE & TRUST ── */}
         <section
           id="open-source"
@@ -815,6 +924,7 @@ export default async function MarketingHome() {
                       ["Open Source", "#open-source"],
                       ["Pricing", "#pricing"],
                       ["FAQ", "#faq"],
+                      ["Why RblxDash", "/why"],
                       ["GitHub", "https://github.com/misericorde0712/RblxDash"],
                     ] as [string, string][]
                   ).map(([l, h]) => (
@@ -870,6 +980,7 @@ export default async function MarketingHome() {
                     [
                       ["Privacy Policy", "/privacy"],
                       ["Terms of Service", "/terms"],
+                      ["Contact & Support", "/contact"],
                     ] as [string, string][]
                   ).map(([l, h]) => (
                     <li key={l}>

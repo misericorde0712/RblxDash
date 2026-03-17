@@ -3,6 +3,7 @@ import Link from "next/link"
 import { requireCurrentOrg } from "@/lib/auth"
 import { getBillingUsageSummary } from "@/lib/billing"
 import { getPlanState } from "@/lib/stripe"
+import { redirectToBillingPortal, redirectToCheckout } from "./actions"
 
 // ─── Plan definitions ─────────────────────────────────────────────────────────
 const PLANS = [
@@ -205,7 +206,7 @@ export default async function BillingPage({
           </div>
 
           {hasActivePlan && (
-            <form action="/api/account/billing/portal" method="POST">
+            <form action={redirectToBillingPortal}>
               <button
                 type="submit"
                 className="rounded-xl border px-4 py-2 text-sm font-semibold transition-colors"
@@ -325,7 +326,7 @@ export default async function BillingPage({
               ) : plan.id === "FREE" ? (
                 // Downgrade to free goes through portal
                 hasActivePlan ? (
-                  <form action="/api/account/billing/portal" method="POST">
+                  <form action={redirectToBillingPortal}>
                     <button
                       type="submit"
                       className="w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors"
@@ -344,33 +345,28 @@ export default async function BillingPage({
                 )
               ) : currentPlan === "FREE" ? (
                 // Start trial / checkout
-                <div className="space-y-2">
+                plan.id === "PRO" ? (
                   <Link
                     href="/start-trial"
                     className="block w-full rounded-xl px-4 py-2.5 text-center text-sm font-semibold transition-colors"
-                    style={
-                      plan.id === "PRO"
-                        ? { background: "#e8822a", color: "#fff" }
-                        : { background: "#252525", border: "1px solid #333", color: "#ccc" }
-                    }
+                    style={{ background: "#e8822a", color: "#fff" }}
                   >
-                    {plan.id === "PRO" ? "Start 7-day trial" : "Try Studio free"}
+                    Start 7-day trial
                   </Link>
-                  {plan.id === "STUDIO" && (
-                    <p className="text-center text-xs" style={{ color: "#555" }}>
-                      or{" "}
-                      <form action="/api/account/billing/checkout" method="POST" className="inline">
-                        <input type="hidden" name="plan" value="STUDIO" />
-                        <button type="submit" className="underline" style={{ color: "#888" }}>
-                          checkout directly
-                        </button>
-                      </form>
-                    </p>
-                  )}
-                </div>
+                ) : (
+                  <form action={redirectToCheckout.bind(null, "STUDIO")}>
+                    <button
+                      type="submit"
+                      className="w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors"
+                      style={{ background: "#252525", border: "1px solid #333", color: "#ccc" }}
+                    >
+                      Try Studio free
+                    </button>
+                  </form>
+                )
               ) : (
                 // Upgrade/change via portal
-                <form action="/api/account/billing/portal" method="POST">
+                <form action={redirectToBillingPortal}>
                   <button
                     type="submit"
                     className="w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors"

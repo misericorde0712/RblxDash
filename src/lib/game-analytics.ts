@@ -450,7 +450,7 @@ export async function getAnalyticsDataset(
           'progression'
         )
       GROUP BY 1
-      ORDER BY count DESC, action ASC
+      ORDER BY count DESC, 1 ASC
       LIMIT 8
     `,
     prisma.$queryRaw<EconomyRow[]>`

@@ -230,9 +230,15 @@ export default async function ModerationPage() {
           <h2 className="text-base font-semibold text-white">Active now</h2>
           <div className="mt-4 space-y-3">
             {activeSanctions.length === 0 ? (
-              <p className="text-sm text-[#666666]">
-                No active kicks, timeouts, or bans for this game.
-              </p>
+              <div className="py-6 text-center">
+                <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: "rgba(74,222,128,0.1)" }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ color: "#4ade80" }}>
+                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <p className="text-sm font-medium text-white">All clear</p>
+                <p className="mt-1 text-xs text-[#666666]">No active sanctions for this game. Your community is in good shape.</p>
+              </div>
             ) : (
               activeSanctions.map((sanction) => (
                 <Link
@@ -277,9 +283,15 @@ export default async function ModerationPage() {
           <h2 className="text-base font-semibold text-white">Recent history</h2>
           <div className="mt-4 space-y-3">
             {recentSanctions.length === 0 ? (
-              <p className="text-sm text-[#666666]">
-                No moderation actions recorded for this game yet.
-              </p>
+              <div className="py-6 text-center">
+                <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: "rgba(232,130,42,0.1)" }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ color: "#e8822a" }}>
+                    <path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <p className="text-sm font-medium text-white">No moderation history</p>
+                <p className="mt-1 text-xs text-[#666666]">Use the player profiles to issue bans, kicks, or timeouts. All actions will appear here.</p>
+              </div>
             ) : (
               recentSanctions.map((sanction) => (
                 <div

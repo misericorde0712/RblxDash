@@ -170,11 +170,18 @@ export default async function ServersPage() {
       {/* Servers table */}
       {servers.length === 0 ? (
         <div className="rounded-xl border border-dashed border-[#3a3a3a] bg-[#222222] py-16 text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl" style={{ background: "rgba(232,130,42,0.1)" }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ color: "#e8822a" }}>
+              <path d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
           <h2 className="text-base font-semibold text-white">No active servers</h2>
-          <p className="mt-2 text-sm text-[#666666]">
-            Servers will appear here when your Roblox game sends heartbeat events
-            to the webhook.
+          <p className="mt-2 max-w-sm mx-auto text-sm text-[#666666]">
+            Servers appear when your game sends heartbeat events. Open your Roblox game in Studio or join it to start seeing live server data.
           </p>
+          <a href="/dashboard/games" className="mt-4 inline-block rounded-lg px-4 py-2 text-xs font-medium" style={{ background: "rgba(232,130,42,0.1)", color: "#e8822a" }}>
+            Check game setup
+          </a>
         </div>
       ) : (
         <div className="rd-table-shell overflow-hidden">

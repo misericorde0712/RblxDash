@@ -445,6 +445,7 @@ function Runtime.start(config)
         return trackProgression(player, stepName, payload)
     end)
 
+
     sendEvent("server_started", buildServerPayload(), nil)
 
     if activeConfig.enablePlayerLifecycle then

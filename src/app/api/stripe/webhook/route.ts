@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import type Stripe from "stripe"
 import { syncSubscriptionFromStripe } from "@/lib/billing"
 import { stripe } from "@/lib/stripe"
-import { sendTrialExpiryEmail } from "@/lib/email"
+import { sendTrialExpiryEmail, sendPaymentFailedEmail } from "@/lib/email"
 import { prisma } from "@/lib/prisma"
 
 export async function POST(req: NextRequest) {
@@ -45,6 +45,30 @@ export async function POST(req: NextRequest) {
               to: dbSub.user.email,
               name: dbSub.user.name ?? "",
               trialEndsAt,
+            })
+          }
+        }
+        break
+      }
+
+      case "invoice.payment_failed": {
+        const invoice = event.data.object as Stripe.Invoice
+        const customerId = typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id
+
+        if (customerId) {
+          const dbSub = await prisma.subscription.findUnique({
+            where: { stripeCustomerId: customerId },
+            include: { user: true },
+          })
+
+          if (dbSub?.user) {
+            const nextAttempt = (invoice as { next_payment_attempt?: number | null }).next_payment_attempt
+            await sendPaymentFailedEmail({
+              to: dbSub.user.email,
+              name: dbSub.user.name ?? "",
+              amountDue: invoice.amount_due,
+              currency: invoice.currency,
+              nextAttemptAt: nextAttempt ? new Date(nextAttempt * 1000) : null,
             })
           }
         }

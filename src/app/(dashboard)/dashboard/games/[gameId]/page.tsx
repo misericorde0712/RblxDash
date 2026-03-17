@@ -20,6 +20,7 @@ import { getLiveServerCutoff } from "@/lib/live-presence"
 import { maskOpenCloudApiKey } from "@/lib/open-cloud"
 import { prisma } from "@/lib/prisma"
 import CopyButton from "../copy-button"
+import DeleteGameButton from "./delete-game-button"
 
 export default async function GameDetailsPage({
   params,
@@ -231,6 +232,18 @@ export default async function GameDetailsPage({
             className="rd-button-secondary"
           >
             Open docs
+          </Link>
+          <Link
+            href={`/dashboard/games/${game.id}/config`}
+            className="rd-button-secondary"
+          >
+            Live Config
+          </Link>
+          <Link
+            href={`/dashboard/games/${game.id}/events`}
+            className="rd-button-secondary"
+          >
+            Live Events
           </Link>
         </div>
       </div>
@@ -545,6 +558,27 @@ export default async function GameDetailsPage({
             </div>
           </div>
         </section>
+
+        {/* Danger zone */}
+        {hasRequiredRole(member.role, OrgRole.ADMIN) && (
+          <section
+            className="rounded-2xl p-5"
+            style={{ background: "#1e1e1e", border: "1px solid rgba(248,113,113,0.15)" }}
+          >
+            <p className="text-xs font-bold uppercase tracking-[0.15em]" style={{ color: "#f87171" }}>
+              Danger zone
+            </p>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-white">Delete this game</p>
+                <p className="mt-0.5 text-sm" style={{ color: "#666" }}>
+                  Permanently removes all servers, players, sanctions, logs, config, and events.
+                </p>
+              </div>
+              <DeleteGameButton gameId={game.id} gameName={game.name} />
+            </div>
+          </section>
+        )}
       </div>
     </div>
   )

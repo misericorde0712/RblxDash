@@ -29,12 +29,18 @@ export default function SidebarShell({
   currentGame,
   availableGames,
   currentGameLabel,
+  planLabel = "Free",
+  isTrialActive = false,
+  trialDaysRemaining = 0,
 }: {
   children: ReactNode
   orgName: string
   currentGame: CurrentGame
   availableGames: GameOption[]
   currentGameLabel: string
+  planLabel?: string
+  isTrialActive?: boolean
+  trialDaysRemaining?: number
 }) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -161,13 +167,28 @@ export default function SidebarShell({
               <span
                 className="mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em]"
                 style={{
-                  background: "rgba(232,130,42,0.15)",
-                  color: "#e8822a",
-                  border: "1px solid rgba(232,130,42,0.2)",
+                  background: isTrialActive
+                    ? "rgba(251,191,36,0.15)"
+                    : "rgba(232,130,42,0.15)",
+                  color: isTrialActive ? "#fbbf24" : "#e8822a",
+                  border: isTrialActive
+                    ? "1px solid rgba(251,191,36,0.2)"
+                    : "1px solid rgba(232,130,42,0.2)",
                 }}
               >
-                Pro Plan
+                {isTrialActive
+                  ? `Trial — ${trialDaysRemaining}d left`
+                  : `${planLabel} Plan`}
               </span>
+              {isTrialActive && (
+                <Link
+                  href="/account"
+                  className="mt-1.5 block text-[10px] font-medium transition-colors hover:text-white"
+                  style={{ color: "#fbbf24" }}
+                >
+                  Upgrade now &rarr;
+                </Link>
+              )}
             </div>
           )}
 

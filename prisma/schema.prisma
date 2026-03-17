@@ -115,12 +115,17 @@ model Game {
   robloxConnectionId String?
   robloxConnection   RobloxConnection? @relation(fields: [robloxConnectionId], references: [id], onDelete: SetNull)
 
+  configVersion Int @default(0)
+  eventVersion  Int @default(0)
+
   sanctions  Sanction[]
   notes      PlayerNote[]
   logs       GameLog[]
   liveServers LiveServer[]
   analytics  AnalyticsSnapshot[]
   players    TrackedPlayer[]
+  liveConfigs LiveConfig[]
+  liveEvents  LiveEvent[]
 }
 
 model RobloxConnection {
@@ -285,6 +290,48 @@ model ApiKey {
 
   @@index([orgId])
   @@index([keyHash])
+}
+
+// ─── Live Config ─────────────────────────────────────────────────────────────
+
+model LiveConfig {
+  id          String   @id @default(cuid())
+  key         String
+  value       String   // JSON-encoded value
+  valueType   String   @default("string") // string | number | boolean | json
+  group       String   @default("default")
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  updatedBy   String?
+
+  gameId String
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, key])
+  @@index([gameId, group])
+}
+
+// ─── Live Events ─────────────────────────────────────────────────────────
+
+model LiveEvent {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String
+  description String?
+  eventData   String    @default("{}") // JSON payload accessible in-game
+  startsAt    DateTime
+  endsAt      DateTime?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  updatedBy   String?
+
+  gameId String
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, slug])
+  @@index([gameId, active, startsAt])
 }
 
 // ─── Billing ─────────────────────────────────────────────────────────────────

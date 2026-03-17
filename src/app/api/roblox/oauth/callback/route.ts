@@ -41,10 +41,11 @@ function clearRobloxOauthCookies(response: NextResponse) {
 
 export async function GET(req: NextRequest) {
   const clerkUser = await currentUser()
+  const appUrl = getRequestOrigin(req)
 
   if (!clerkUser) {
     return NextResponse.redirect(
-      new URL(`/login?redirect_url=${encodeURIComponent("/account")}`, req.url),
+      new URL(`/login?redirect_url=${encodeURIComponent("/account")}`, appUrl),
       { status: 303 }
     )
   }
@@ -61,10 +62,7 @@ export async function GET(req: NextRequest) {
 
   if (error) {
     const response = NextResponse.redirect(
-      new URL(
-        appendStatus(redirectTo, "error", errorDescription || error),
-        req.url
-      ),
+      new URL(appendStatus(redirectTo, "error", errorDescription || error), appUrl),
       { status: 303 }
     )
     clearRobloxOauthCookies(response)
@@ -73,7 +71,7 @@ export async function GET(req: NextRequest) {
 
   if (!state || !expectedState || state !== expectedState || !codeVerifier || !code) {
     const response = NextResponse.redirect(
-      new URL(appendStatus(redirectTo, "error", "invalid-state"), req.url),
+      new URL(appendStatus(redirectTo, "error", "invalid-state"), appUrl),
       { status: 303 }
     )
     clearRobloxOauthCookies(response)
@@ -82,7 +80,6 @@ export async function GET(req: NextRequest) {
 
   try {
     const dbUser = await upsertDbUserFromClerkUser(clerkUser)
-    const appUrl = getRequestOrigin(req)
     const redirectUri = `${appUrl}/api/roblox/oauth/callback`
     const tokenResponse = await exchangeRobloxAuthorizationCode({
       code,
@@ -96,7 +93,7 @@ export async function GET(req: NextRequest) {
     })
 
     const response = NextResponse.redirect(
-      new URL(appendStatus(redirectTo, "connected"), req.url),
+      new URL(appendStatus(redirectTo, "connected"), appUrl),
       { status: 303 }
     )
     clearRobloxOauthCookies(response)
@@ -111,7 +108,7 @@ export async function GET(req: NextRequest) {
           "error",
           error instanceof Error ? error.message : "oauth-failed"
         ),
-        req.url
+        appUrl
       ),
       { status: 303 }
     )

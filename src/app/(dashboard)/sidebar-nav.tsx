@@ -58,6 +58,16 @@ const icons = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
     </svg>
   ),
+  config: (
+    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+    </svg>
+  ),
+  events: (
+    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+  ),
   games: (
     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -86,7 +96,23 @@ const icons = {
   ),
 }
 
-function getNavSections(): NavSection[] {
+function getNavSections(currentGameId: string | null): NavSection[] {
+  const gameItems: NavItem[] = [
+    { href: "/dashboard/health",     label: "Health",     icon: icons.health },
+    { href: "/dashboard/servers",     label: "Servers",    icon: icons.servers },
+    { href: "/dashboard/logs",        label: "Logs",       icon: icons.logs },
+    { href: "/dashboard/players",     label: "Players",    icon: icons.players },
+    { href: "/dashboard/analytics",   label: "Analytics",  icon: icons.analytics },
+    { href: "/dashboard/moderation",  label: "Moderation", icon: icons.moderation },
+  ]
+
+  if (currentGameId) {
+    gameItems.push(
+      { href: `/dashboard/games/${currentGameId}/config`,  label: "Live Config",  icon: icons.config },
+      { href: `/dashboard/games/${currentGameId}/events`,  label: "Live Events",  icon: icons.events },
+    )
+  }
+
   return [
     {
       label: null,
@@ -96,14 +122,7 @@ function getNavSections(): NavSection[] {
     },
     {
       label: "Game",
-      items: [
-        { href: "/dashboard/health",     label: "Health",     icon: icons.health },
-        { href: "/dashboard/servers",     label: "Servers",    icon: icons.servers },
-        { href: "/dashboard/logs",        label: "Logs",       icon: icons.logs },
-        { href: "/dashboard/players",     label: "Players",    icon: icons.players },
-        { href: "/dashboard/analytics",   label: "Analytics",  icon: icons.analytics },
-        { href: "/dashboard/moderation",  label: "Moderation", icon: icons.moderation },
-      ],
+      items: gameItems,
     },
     {
       label: "Workspace",
@@ -129,14 +148,14 @@ function getNavSections(): NavSection[] {
 }
 
 export default function SidebarNav({
-  currentGameId: _currentGameId,
+  currentGameId,
   collapsed = false,
 }: {
   currentGameId: string | null
   collapsed?: boolean
 }) {
   const pathname = usePathname()
-  const sections = getNavSections()
+  const sections = getNavSections(currentGameId)
 
   return (
     <nav className="flex-1 overflow-y-auto px-3 py-3">

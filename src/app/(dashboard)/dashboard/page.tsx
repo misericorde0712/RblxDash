@@ -14,6 +14,10 @@ import {
 import { getGameLogEventDisplay } from "@/lib/game-log-events"
 import { cleanupStaleLivePresence, getLiveServerCutoff } from "@/lib/live-presence"
 import { prisma } from "@/lib/prisma"
+import OnboardingChecklist from "@/components/onboarding-checklist"
+import UpsellBanner from "@/components/upsell-banner"
+import CelebrationToast from "@/components/celebrations"
+import { getMilestones } from "@/lib/milestones"
 
 export default async function DashboardHomePage() {
   const { org, billingOwner, billingSubscription, currentGame } =
@@ -24,16 +28,37 @@ export default async function DashboardHomePage() {
     currentOrgId: org.id,
   })
 
+  // Données pour onboarding checklist
+  const [totalGamesForOrg, totalEventsForOrg, totalMembersForOrg] = await Promise.all([
+    prisma.game.count({ where: { orgId: org.id } }),
+    prisma.gameLog.count({ where: { game: { orgId: org.id } }, take: 1 }),
+    prisma.orgMember.count({ where: { orgId: org.id } }),
+  ])
+
+  const hasGame = totalGamesForOrg > 0
+  const hasWebhookEvent = totalEventsForOrg > 0
+  const hasTeamMember = totalMembersForOrg > 1
+  const hasBilling = usage.hasActivePlan && !usage.isTrialActive
+
   if (!currentGame) {
     return (
-      <div className="p-8">
-        <h1 className="text-2xl font-semibold text-white">Dashboard</h1>
-        <p className="mt-1 text-sm" style={{ color: "#9ca3af" }}>
-          Pick a game to turn this page into a live game overview.
-        </p>
+      <div className="space-y-6 p-8">
+        <div>
+          <h1 className="text-2xl font-semibold text-white">Dashboard</h1>
+          <p className="mt-1 text-sm" style={{ color: "#9ca3af" }}>
+            Pick a game to turn this page into a live game overview.
+          </p>
+        </div>
+
+        <OnboardingChecklist
+          hasGame={hasGame}
+          hasWebhookEvent={hasWebhookEvent}
+          hasTeamMember={hasTeamMember}
+          hasBilling={hasBilling}
+        />
 
         <div
-          className="mt-8 rounded-xl px-4 py-3 text-sm"
+          className="rounded-xl px-4 py-3 text-sm"
           style={{
             background: "rgba(232,130,42,0.08)",
             border: "1px solid rgba(232,130,42,0.2)",
@@ -143,11 +168,29 @@ export default async function DashboardHomePage() {
       </div>
 
       <div className="space-y-6 p-6">
+        {/* ── Onboarding checklist (shows until all steps done) ── */}
+        <OnboardingChecklist
+          hasGame={hasGame}
+          hasWebhookEvent={hasWebhookEvent}
+          hasTeamMember={hasTeamMember}
+          hasBilling={hasBilling}
+        />
+
         {/* ── Over-limit warning ───────────────────────────────── */}
         {usage.isOverLimit ? (
           <div className="rounded-xl px-4 py-3 text-sm" style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.18)", color: "#fbbf24" }}>
             This account is over its plan limit. Existing data stays available, but creating new games or workspaces is blocked.
           </div>
+        ) : null}
+
+        {/* ── Upsell — approaching game limit ──────────────────── */}
+        {!usage.isOverLimit && usage.totalGamesCount >= usage.maxGames - 1 && Number.isFinite(usage.maxGames) ? (
+          <UpsellBanner
+            type={usage.totalGamesCount >= usage.maxGames ? "reached" : "warning"}
+            current={usage.totalGamesCount}
+            limit={usage.maxGames}
+            resource="games"
+          />
         ) : null}
 
         {/* ── 4 metrics ────────────────────────────────────────── */}
@@ -271,6 +314,16 @@ export default async function DashboardHomePage() {
           </div>
         </div>
       </div>
+
+      {/* Celebrations */}
+      <CelebrationToast
+        milestones={getMilestones({
+          totalPlayers: recentPlayers24h,
+          totalSanctions: pendingModeration + failedModeration24h,
+          totalEvents: events24h,
+          gamesCount: usage.totalGamesCount,
+        })}
+      />
     </div>
   )
 }

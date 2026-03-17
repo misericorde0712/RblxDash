@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { upsertDbUserFromClerkUser } from "@/lib/auth"
 import { ensureStripeCustomerForUser } from "@/lib/billing"
 import { getRequestOrigin } from "@/lib/request-url"
-import { getPlanState, getPriceIdForPlan, stripe } from "@/lib/stripe"
+import { FREE_TRIAL_DAYS, getPlanState, getPriceIdForPlan, stripe } from "@/lib/stripe"
 
 const CheckoutSchema = z.object({
   plan: z.enum(["PRO", "STUDIO"]),
@@ -47,12 +47,29 @@ export async function POST(req: NextRequest) {
       status: accountSubscription?.status,
       currentPeriodEnd: accountSubscription?.currentPeriodEnd,
     })
+
+    const returnToRaw = formData.get("return_to") as string | null
+    const returnTo =
+      returnToRaw && returnToRaw.startsWith("/") && !returnToRaw.includes("://")
+        ? returnToRaw
+        : "/account"
+
+    // Determine trial config:
+    // - If switching plans mid-trial, preserve remaining trial time
+    // - If brand new subscriber, give a fresh trial
+    // - If previously subscribed (has stripe sub ID), no trial
     const trialEndTimestamp =
       planState.isTrialActive &&
       planState.trialEndsAt &&
       planState.trialEndsAt.getTime() > Date.now() + 60 * 1000
         ? Math.floor(planState.trialEndsAt.getTime() / 1000)
         : undefined
+    const isNewSubscriber = !syncedSubscription.stripeSubscriptionId
+    const subscriptionTrialData = trialEndTimestamp
+      ? { trial_end: trialEndTimestamp }
+      : isNewSubscriber
+        ? { trial_period_days: FREE_TRIAL_DAYS }
+        : {}
 
     const appUrl = getRequestOrigin(req)
     const session = await stripe.checkout.sessions.create({
@@ -77,10 +94,10 @@ export async function POST(req: NextRequest) {
           source: "account_page",
           plan,
         },
-        ...(trialEndTimestamp ? { trial_end: trialEndTimestamp } : {}),
+        ...subscriptionTrialData,
       },
-      success_url: `${appUrl}/account?success=1`,
-      cancel_url: `${appUrl}/account?canceled=1`,
+      success_url: `${appUrl}${returnTo}?success=1`,
+      cancel_url: `${appUrl}${returnTo}?canceled=1`,
     })
 
     if (!session.url) {

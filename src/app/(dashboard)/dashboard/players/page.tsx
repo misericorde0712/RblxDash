@@ -231,14 +231,24 @@ export default async function PlayersPage({
 
       {players.length === 0 ? (
         <div className="rounded-xl border border-dashed border-[#3a3a3a] bg-[#222222] py-16 text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl" style={{ background: "rgba(232,130,42,0.1)" }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ color: "#e8822a" }}>
+              <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
           <h2 className="text-base font-semibold text-white">
             {query ? "No matching players" : "No tracked players yet"}
           </h2>
-          <p className="mt-2 text-sm text-[#666666]">
+          <p className="mt-2 max-w-sm mx-auto text-sm text-[#666666]">
             {query
               ? "Try a different username, display name, or Roblox ID."
-              : "Tracked players will appear here after Roblox sends player events to the webhook."}
+              : "Players appear automatically when they join your Roblox game. Make sure the Luau script is installed and HTTP Requests are enabled."}
           </p>
+          {!query && (
+            <a href="/dashboard/games" className="mt-4 inline-block rounded-lg px-4 py-2 text-xs font-medium" style={{ background: "rgba(232,130,42,0.1)", color: "#e8822a" }}>
+              Check game setup
+            </a>
+          )}
         </div>
       ) : (
         <div className="rd-table-shell overflow-hidden">

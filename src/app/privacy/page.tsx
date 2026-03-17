@@ -4,15 +4,15 @@ export default function PrivacyPage() {
   return (
     <LegalPage
       title="Privacy Policy"
-      description="This page explains, at a high level, what Dashblox stores to run the service and what remains under your control as a Roblox developer."
+      description="This page explains, at a high level, what RblxDash stores to run the service and what remains under your control as a Roblox developer."
       sections={[
         {
-          title: "What Dashblox stores",
-          body: "Dashblox stores account data, workspace memberships, connected game settings, webhook events, tracked players, moderation history, and billing information needed to operate the dashboard.",
+          title: "What RblxDash stores",
+          body: "RblxDash stores account data, workspace memberships, connected game settings, webhook events, tracked players, moderation history, and billing information needed to operate the dashboard.",
         },
         {
           title: "Roblox game data",
-          body: "Dashblox stores the events your Roblox server code sends to the service. This can include joins, leaves, server heartbeats, gameplay events, economy data, progression steps, and moderation acknowledgements.",
+          body: "RblxDash stores the events your Roblox server code sends to the service. This can include joins, leaves, server heartbeats, gameplay events, economy data, progression steps, and moderation acknowledgements.",
         },
         {
           title: "Credentials and secrets",

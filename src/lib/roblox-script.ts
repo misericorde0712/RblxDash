@@ -88,6 +88,7 @@ function Dashblox.trackError(player, errorMessage, payload)
     return getApiFunction(TRACK_ERROR_FUNCTION_NAME):Invoke(player, errorMessage, payload or {})
 end
 
+
 function Dashblox.trackRobuxPurchase(player, purchaseType, amount, payload)
     local body = mergePayloads({
         purchaseType = purchaseType or "unknown",
@@ -598,6 +599,7 @@ end)
 ensureBindableFunction(apiFolder, TRACK_ERROR_FUNCTION_NAME, function(player, errorMessage, payload)
     return trackError(player, errorMessage, payload)
 end)
+
 
 sendEvent("server_started", buildServerPayload(), nil)
 
