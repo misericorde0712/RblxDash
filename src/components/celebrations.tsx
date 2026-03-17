@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import type { Milestone } from "@/lib/milestones"
+type Milestone = { id: string; title: string; description: string }
 
 export default function CelebrationToast({ milestones }: { milestones: Milestone[] }) {
   const [visible, setVisible] = useState<Milestone[]>([])
