@@ -1,7 +1,58 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          // Empêche le clickjacking
+          { key: "X-Frame-Options", value: "DENY" },
+          // Empêche le MIME type sniffing
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          // Contrôle le Referrer
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          // Permissions Policy (désactive caméra, micro, géoloc, etc.)
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+          },
+          // Strict Transport Security (1 an, includeSubDomains)
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=31536000; includeSubDomains",
+          },
+          // Content Security Policy
+          {
+            key: "Content-Security-Policy",
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://*.clerk.accounts.dev https://challenges.cloudflare.com",
+              "style-src 'self' 'unsafe-inline' https://api.fontshare.com",
+              "font-src 'self' https://cdn.fontshare.com",
+              "img-src 'self' data: blob: https://*.roblox.com https://tr.rbxcdn.com https://thumbnails.roblox.com https://img.clerk.com",
+              "connect-src 'self' https://*.clerk.accounts.dev https://api.stripe.com https://*.roblox.com https://api.resend.com",
+              "frame-src 'self' https://js.stripe.com https://*.clerk.accounts.dev https://challenges.cloudflare.com",
+              "object-src 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+              "frame-ancestors 'none'",
+            ].join("; "),
+          },
+        ],
+      },
+      {
+        // Headers CORS pour l'API v1 publique
+        source: "/api/v1/:path*",
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "*" },
+          { key: "Access-Control-Allow-Methods", value: "GET, POST, PUT, PATCH, DELETE, OPTIONS" },
+          { key: "Access-Control-Allow-Headers", value: "Authorization, Content-Type" },
+          { key: "Access-Control-Max-Age", value: "86400" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

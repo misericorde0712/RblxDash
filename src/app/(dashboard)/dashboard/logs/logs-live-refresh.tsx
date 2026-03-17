@@ -1,0 +1,52 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+
+function formatRefreshTime(value: Date) {
+  return value.toLocaleTimeString("en-CA", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  })
+}
+
+export function LogsLiveRefresh() {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const [lastRefreshAt, setLastRefreshAt] = useState(() => new Date())
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState !== "visible") {
+        return
+      }
+
+      const nextSearchParams = new URLSearchParams(searchParams.toString())
+      nextSearchParams.set("_live", String(Date.now()))
+      const nextUrl = `${pathname}?${nextSearchParams.toString()}`
+
+      router.replace(nextUrl, {
+        scroll: false,
+      })
+      setLastRefreshAt(new Date())
+    }, 5000)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [pathname, router, searchParams])
+
+  return (
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-900 bg-emerald-950/50 px-4 py-3 text-sm text-emerald-100">
+      <div className="flex items-center gap-2">
+        <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+        <span>Live feed is on. New logs appear automatically every 5 seconds.</span>
+      </div>
+      <p className="text-xs text-emerald-200/80">
+        Last refresh {formatRefreshTime(lastRefreshAt)}
+      </p>
+    </div>
+  )
+}

@@ -1,0 +1,317 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Auth / Orgs ─────────────────────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  clerkId   String   @unique
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+
+  memberships           OrgMember[]
+  subscription          Subscription?
+  robloxConnection      RobloxConnection?
+  billingOrganizations  Organization[] @relation("BillingOwnerOrganizations")
+  sentOrgInvites        OrgInvite[]    @relation("InvitedOrgInvites")
+  acceptedOrgInvites    OrgInvite[]    @relation("AcceptedOrgInvites")
+  auditLogs             AuditLog[]     @relation("ActorAuditLogs")
+  apiKeys               ApiKey[]
+}
+
+model Organization {
+  id                 String   @id @default(cuid())
+  name               String
+  slug               String   @unique
+  createdAt          DateTime @default(now())
+  discordWebhookUrl  String?
+
+  members OrgMember[]
+  invites OrgInvite[]
+  auditLogs AuditLog[]
+  games   Game[]
+  apiKeys ApiKey[]
+
+  billingOwnerId String
+  billingOwner   User @relation("BillingOwnerOrganizations", fields: [billingOwnerId], references: [id], onDelete: Restrict)
+}
+
+model OrgMember {
+  id       String   @id @default(cuid())
+  role     OrgRole  @default(MODERATOR)
+  joinedAt DateTime @default(now())
+
+  userId String
+  orgId  String
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, orgId])
+}
+
+enum OrgRole {
+  MODERATOR
+  ADMIN
+  OWNER
+}
+
+model OrgInvite {
+  id               String    @id @default(cuid())
+  email            String
+  role             OrgRole
+  token            String    @unique
+  createdAt        DateTime  @default(now())
+  expiresAt        DateTime
+  acceptedAt       DateTime?
+  orgId            String
+  invitedByUserId  String
+  acceptedByUserId String?
+  org              Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  invitedBy        User         @relation("InvitedOrgInvites", fields: [invitedByUserId], references: [id], onDelete: Cascade)
+  acceptedBy       User?        @relation("AcceptedOrgInvites", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, createdAt])
+  @@index([orgId, email])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  event       String
+  targetType  String?
+  targetId    String?
+  payload     Json?
+  createdAt   DateTime @default(now())
+  actorUserId String?
+  orgId       String
+  actor       User?        @relation("ActorAuditLogs", fields: [actorUserId], references: [id], onDelete: SetNull)
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, createdAt])
+  @@index([orgId, event, createdAt])
+  @@index([actorUserId, createdAt])
+}
+
+// ─── Games ───────────────────────────────────────────────────────────────────
+
+model Game {
+  id               String   @id @default(cuid())
+  name             String
+  robloxPlaceId    String
+  robloxUniverseId String?
+  openCloudApiKey  String?
+  webhookSecret    String
+  modules          String[]
+  createdAt        DateTime @default(now())
+
+  orgId String
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  robloxConnectionId String?
+  robloxConnection   RobloxConnection? @relation(fields: [robloxConnectionId], references: [id], onDelete: SetNull)
+
+  sanctions  Sanction[]
+  notes      PlayerNote[]
+  logs       GameLog[]
+  liveServers LiveServer[]
+  analytics  AnalyticsSnapshot[]
+  players    TrackedPlayer[]
+}
+
+model RobloxConnection {
+  id                 String   @id @default(cuid())
+  robloxUserId       String   @unique
+  robloxUsername     String?
+  robloxDisplayName  String?
+  robloxProfileUrl   String?
+  robloxAvatarUrl    String?
+  scopes             String[]
+  accessToken        String
+  refreshToken       String
+  tokenType          String?
+  expiresAt          DateTime
+  rawResourceData    Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  games Game[]
+}
+
+// ─── Players ─────────────────────────────────────────────────────────────────
+
+model TrackedPlayer {
+  id          String   @id @default(cuid())
+  robloxId    String
+  username    String?
+  displayName String?
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+  isOnline    Boolean  @default(false)
+  currentServerJobId String?
+  lastSessionStartedAt DateTime?
+  lastSessionEndedAt DateTime?
+
+  gameId String
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  sanctions Sanction[]
+  notes     PlayerNote[]
+
+  @@unique([gameId, robloxId])
+  @@index([gameId, isOnline, lastSeenAt])
+}
+
+// ─── Moderation ──────────────────────────────────────────────────────────────
+
+model Sanction {
+  id        String       @id @default(cuid())
+  type      SanctionType
+  reason    String
+  expiresAt DateTime?
+  active    Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  deliveryStatus  SanctionDeliveryStatus @default(PENDING)
+  deliveredAt     DateTime?
+  deliveryDetails String?
+
+  gameId    String
+  robloxId  String
+  moderator String
+  game      Game           @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  player    TrackedPlayer? @relation(fields: [gameId, robloxId], references: [gameId, robloxId])
+}
+
+enum SanctionType {
+  KICK
+  TIMEOUT
+  BAN
+  UNBAN
+}
+
+enum SanctionDeliveryStatus {
+  PENDING
+  APPLIED
+  FAILED
+}
+
+model PlayerNote {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+
+  gameId   String
+  robloxId String
+  authorId String
+  game     Game           @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  player   TrackedPlayer? @relation(fields: [gameId, robloxId], references: [gameId, robloxId])
+}
+
+// ─── Logs ────────────────────────────────────────────────────────────────────
+
+model GameLog {
+  id        String   @id @default(cuid())
+  event     String
+  payload   Json
+  robloxId  String?
+  createdAt DateTime @default(now())
+
+  gameId String
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@index([gameId, createdAt])
+  @@index([gameId, event])
+}
+
+model LiveServer {
+  id              String   @id @default(cuid())
+  jobId           String
+  placeId         String?
+  region          String?
+  startedAt       DateTime @default(now())
+  lastHeartbeatAt DateTime @default(now())
+  lastPlayerCount Int      @default(0)
+  lastPlayerIds   String[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  gameId String
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, jobId])
+  @@index([gameId, lastHeartbeatAt])
+}
+
+// ─── Analytics ───────────────────────────────────────────────────────────────
+
+model AnalyticsSnapshot {
+  id            String   @id @default(cuid())
+  date          DateTime @db.Date
+  activePlayers Int      @default(0)
+  newPlayers    Int      @default(0)
+  revenue       Float    @default(0)
+  sessions      Int      @default(0)
+  customData    Json?
+
+  gameId String
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, date])
+}
+
+// ─── API Keys ────────────────────────────────────────────────────────────────
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  name        String
+  keyHash     String    @unique
+  keyPrefix   String
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  orgId       String
+  createdById String
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdBy   User         @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([keyHash])
+}
+
+// ─── Billing ─────────────────────────────────────────────────────────────────
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  stripeCustomerId     String             @unique
+  stripeSubscriptionId String?            @unique
+  plan                 Plan               @default(FREE)
+  status               SubscriptionStatus @default(ACTIVE)
+  currentPeriodEnd     DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum Plan {
+  FREE
+  PRO
+  STUDIO
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  TRIALING
+}
