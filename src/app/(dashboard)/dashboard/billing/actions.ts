@@ -18,7 +18,7 @@ import type { PaidPlan } from "@/lib/stripe"
 function getAppUrl(headersList: Awaited<ReturnType<typeof headers>>) {
   return getRequestOrigin({
     headers: headersList,
-    url: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+    url: process.env.NEXT_PUBLIC_APP_URL!,
   })
 }
 

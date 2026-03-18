@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
 
     const returnToRaw = formData.get("return_to") as string | null
     const returnTo =
-      returnToRaw && returnToRaw.startsWith("/") && !returnToRaw.includes("://")
+      returnToRaw && returnToRaw.startsWith("/") && !returnToRaw.startsWith("//") && !returnToRaw.includes("://")
         ? returnToRaw
         : "/account"
 

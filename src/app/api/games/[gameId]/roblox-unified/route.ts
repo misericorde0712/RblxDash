@@ -36,7 +36,7 @@ export async function GET(
       return NextResponse.json({ error: "Game not found" }, { status: 404 })
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL!
     const script = buildRobloxServerScript({
       gameName: game.name,
       webhookUrl: `${appUrl}/api/webhook/${game.id}`,

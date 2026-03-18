@@ -67,7 +67,7 @@ export default async function GamesPage({
           },
         })
       : null
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL!
   const webhookUrl = createdGame
     ? `${appUrl}/api/webhook/${createdGame.id}`
     : null

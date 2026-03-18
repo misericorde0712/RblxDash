@@ -75,7 +75,7 @@ export default async function GameDetailsPage({
 
   const canManageGame = hasRequiredRole(member.role, OrgRole.ADMIN)
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL!
   const webhookUrl = `${appUrl}/api/webhook/${game.id}`
   const webhookHeader = `x-webhook-secret: ${game.webhookSecret}`
   const maskedApiKey = game.openCloudApiKey
