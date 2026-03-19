@@ -174,24 +174,27 @@ export async function GET() {
 
     const userId = robloxConnection.robloxUserId
 
-    // Try OAuth-authenticated fetch first (sees all authorized games including private)
+    // Try OAuth-authenticated fetch first (returns only explicitly authorized games)
     let oauthGames: GameEntry[] = []
     const tokenResult = await ensureRobloxAccessToken(dbUser.id)
     if (tokenResult) {
       oauthGames = await fetchGamesWithOAuth(userId, tokenResult.accessToken)
     }
 
-    // Also fetch from public API (groups + public user games)
-    const [publicUserGames, groups] = await Promise.all([
-      fetchGamesForUser(userId),
-      fetchUserGroups(userId),
-    ])
+    // Only fall back to public API if OAuth returned no results
+    let publicUserGames: GameEntry[] = []
+    let groupGameResults: GameEntry[][] = []
+    if (oauthGames.length === 0) {
+      const [userGames, groups] = await Promise.all([
+        fetchGamesForUser(userId),
+        fetchUserGroups(userId),
+      ])
+      publicUserGames = userGames
+      groupGameResults = await Promise.all(
+        groups.slice(0, 10).map((gr) => fetchGamesForGroup(gr.group.id, gr.group.name))
+      )
+    }
 
-    const groupGameResults = await Promise.all(
-      groups.slice(0, 10).map((gr) => fetchGamesForGroup(gr.group.id, gr.group.name))
-    )
-
-    // Combine: OAuth games first, then public, then groups — deduplicate by universeId
     const allGames = [...oauthGames, ...publicUserGames, ...groupGameResults.flat()]
     const seen = new Set<string>()
     const dedupedGames: GameEntry[] = []
