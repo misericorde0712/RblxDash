@@ -42,9 +42,9 @@ type TokenResourceInfo = {
   }
 }
 
-async function fetchAuthorizedUniverseIds(accessToken: string): Promise<string[]> {
+async function fetchAuthorizedUniverseIds(accessToken: string): Promise<{ universeIds: string[]; hasUniversalAccess: boolean }> {
   const config = getRobloxOAuthConfig()
-  if (!config) return []
+  if (!config) return { universeIds: [], hasUniversalAccess: false }
 
   const body = new URLSearchParams({
     token: accessToken,
@@ -61,22 +61,27 @@ async function fetchAuthorizedUniverseIds(accessToken: string): Promise<string[]
 
   if (!res.ok) {
     log.info("Token resources fetch failed", { status: res.status })
-    return []
+    return { universeIds: [], hasUniversalAccess: false }
   }
 
   const data = (await res.json()) as { resource_infos?: TokenResourceInfo[] }
+
+  log.info("Token resources response", { resource_infos: JSON.stringify(data.resource_infos) })
+
   const universeIds: string[] = []
+  let hasUniversalAccess = false
 
   for (const info of data.resource_infos ?? []) {
     for (const id of info.resources?.universe?.ids ?? []) {
-      // "U" means all universes owned by the user — skip it, we'll get those from the public API
-      if (id !== "U") {
+      if (id === "U") {
+        hasUniversalAccess = true
+      } else {
         universeIds.push(id)
       }
     }
   }
 
-  return universeIds
+  return { universeIds, hasUniversalAccess }
 }
 
 async function fetchUniverseDetails(universeIds: string[]): Promise<GameEntry[]> {
@@ -101,15 +106,32 @@ async function fetchUniverseDetails(universeIds: string[]): Promise<GameEntry[]>
 }
 
 async function fetchGamesWithOAuth(
-  _robloxUserId: string,
+  robloxUserId: string,
   accessToken: string
-): Promise<GameEntry[]> {
-  const universeIds = await fetchAuthorizedUniverseIds(accessToken)
-  if (universeIds.length === 0) return []
+): Promise<{ games: GameEntry[]; hasUniversalAccess: boolean }> {
+  const { universeIds, hasUniversalAccess } = await fetchAuthorizedUniverseIds(accessToken)
 
-  log.info("OAuth authorized universes found", { count: universeIds.length, universeIds })
+  log.info("OAuth authorized universes found", {
+    count: universeIds.length,
+    universeIds,
+    hasUniversalAccess,
+  })
 
-  return fetchUniverseDetails(universeIds)
+  const games = await fetchUniverseDetails(universeIds)
+
+  // If user granted universal access ("U"), also fetch their public games
+  if (hasUniversalAccess) {
+    const publicGames = await fetchGamesForUser(robloxUserId)
+    const seen = new Set(games.map((g) => g.universeId))
+    for (const g of publicGames) {
+      if (!seen.has(g.universeId)) {
+        games.push({ ...g, source: "oauth" })
+        seen.add(g.universeId)
+      }
+    }
+  }
+
+  return { games, hasUniversalAccess }
 }
 
 // ─── Public API fallback (no auth needed) ───────────────────────────────────
@@ -176,12 +198,15 @@ export async function GET() {
 
     // Try OAuth-authenticated fetch first (returns only explicitly authorized games)
     let oauthGames: GameEntry[] = []
+    let oauthConnected = false
     const tokenResult = await ensureRobloxAccessToken(dbUser.id)
     if (tokenResult) {
-      oauthGames = await fetchGamesWithOAuth(userId, tokenResult.accessToken)
+      const result = await fetchGamesWithOAuth(userId, tokenResult.accessToken)
+      oauthGames = result.games
+      oauthConnected = true
     }
 
-    // Only fall back to public API if OAuth returned no results
+    // Only fall back to public API if OAuth is not connected or returned no results
     let publicUserGames: GameEntry[] = []
     let groupGameResults: GameEntry[][] = []
     if (oauthGames.length === 0) {
@@ -208,9 +233,10 @@ export async function GET() {
 
     log.info("Games fetched", {
       userId,
+      oauthConnected,
       oauthGames: oauthGames.length,
       publicGames: publicUserGames.length,
-      groups: groups.length,
+      groupGames: groupGameResults.flat().length,
       total: dedupedGames.length,
     })
 
