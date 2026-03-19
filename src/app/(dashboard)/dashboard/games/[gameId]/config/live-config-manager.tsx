@@ -87,7 +87,7 @@ export default function LiveConfigManager({
       setNewConfig({ ...EMPTY_NEW })
       setShowCreate(false)
       await refresh()
-    } catch (err) {
+    } catch {
       setError("Network error")
     } finally {
       setLoading(false)

@@ -5,6 +5,9 @@ import { getRequestOrigin } from "@/lib/request-url"
 import { upsertDbUserFromClerkUser } from "@/lib/auth"
 import { upsertRobloxConnectionFromToken } from "@/lib/roblox-connection"
 import { exchangeRobloxAuthorizationCode } from "@/lib/roblox-oauth"
+import { createLogger } from "@/lib/logger"
+
+const log = createLogger("roblox/oauth/callback")
 
 const ROBLOX_OAUTH_STATE_COOKIE = "rblxdash_roblox_oauth_state"
 const ROBLOX_OAUTH_VERIFIER_COOKIE = "rblxdash_roblox_oauth_verifier"
@@ -99,7 +102,7 @@ export async function GET(req: NextRequest) {
     clearRobloxOauthCookies(response)
     return response
   } catch (error) {
-    console.error("[GET /api/roblox/oauth/callback]", error)
+    log.error("OAuth callback failed", {}, error instanceof Error ? error : undefined)
 
     const response = NextResponse.redirect(
       new URL(

@@ -32,7 +32,7 @@ export default async function GameEventsPage({
 
   const isAdmin = member.role === "ADMIN" || member.role === "OWNER"
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://dashblox.desgagneweb.com"
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://rblxdash.com"
   const addonScript = buildLiveEventsAddon({
     eventsUrl: `${appUrl}/api/webhook/${game.id}/events`,
     webhookSecret: game.webhookSecret,

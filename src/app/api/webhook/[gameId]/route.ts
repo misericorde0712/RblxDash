@@ -4,6 +4,10 @@ import { z } from "zod"
 import { getServerPresenceFromPayload } from "@/lib/live-presence"
 import { prisma } from "@/lib/prisma"
 import { sendModerationFailedAlert } from "@/lib/discord"
+import { sendGameConnectedEmail } from "@/lib/email"
+import { createLogger } from "@/lib/logger"
+
+const log = createLogger("webhook/gameId")
 
 const WebhookBodySchema = z.object({
   event: z.string().min(1),
@@ -276,9 +280,25 @@ export async function POST(
       }
     })
 
+    // Send "game connected" email on first event for this game
+    const totalLogs = await prisma.gameLog.count({ where: { gameId } })
+    if (totalLogs === 1 && game.org) {
+      const owner = await prisma.membership.findFirst({
+        where: { orgId: game.orgId, role: "OWNER" },
+        include: { user: { select: { email: true, name: true } } },
+      })
+      if (owner?.user) {
+        sendGameConnectedEmail({
+          to: owner.user.email,
+          name: owner.user.name ?? "",
+          gameName: game.name,
+        }).catch(() => null)
+      }
+    }
+
     return NextResponse.json({ ok: true }, { status: 200 })
   } catch (err) {
-    console.error("[POST /api/webhook/[gameId]]", err)
+    log.error("Webhook processing failed", {}, err instanceof Error ? err : undefined)
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

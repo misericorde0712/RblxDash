@@ -1,7 +1,7 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server"
 import { NextResponse } from "next/server"
 import { toAbsoluteUrl } from "@/lib/request-url"
-import { checkRateLimit, getRateLimitKey, RATE_LIMITS } from "@/lib/rate-limit"
+import { checkRateLimit, getRateLimitKey, withRateLimitHeaders, RATE_LIMITS } from "@/lib/rate-limit"
 import { isMaintenanceMode, isIpAllowed, getMaintenanceResponse, getMaintenancePageHtml } from "@/lib/maintenance"
 
 const isPublicRoute = createRouteMatcher([
@@ -56,14 +56,18 @@ export default clerkMiddleware(
     }
 
     // ─── Rate limiting ────────────────────────────────────────
+    let rateLimitResult: { remaining: number; resetAt: number } | null = null
+
     if (isApiV1Route(req)) {
       const key = getRateLimitKey(req, "v1")
       const rl = await checkRateLimit(key, RATE_LIMITS.api)
       if (rl.limited) return rl.response
+      rateLimitResult = rl
     } else if (isWebhookRoute(req)) {
       const key = getRateLimitKey(req, "wh")
       const rl = await checkRateLimit(key, RATE_LIMITS.webhook)
       if (rl.limited) return rl.response
+      rateLimitResult = rl
     } else if (isAuthRoute(req)) {
       const key = getRateLimitKey(req, "auth")
       const rl = await checkRateLimit(key, RATE_LIMITS.auth)
@@ -82,12 +86,16 @@ export default clerkMiddleware(
         return NextResponse.redirect(toAbsoluteUrl(req, "/dashboard"))
       }
 
-      return NextResponse.next()
+      const response = NextResponse.next()
+      if (rateLimitResult) return withRateLimitHeaders(response, rateLimitResult)
+      return response
     }
 
     await auth.protect()
 
-    return NextResponse.next()
+    const response = NextResponse.next()
+    if (rateLimitResult) return withRateLimitHeaders(response, rateLimitResult)
+    return response
   },
   {
     debug: process.env.NODE_ENV === "development",

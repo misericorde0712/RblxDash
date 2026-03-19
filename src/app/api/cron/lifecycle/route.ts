@@ -19,6 +19,9 @@ import {
   sendInactiveUserEmail,
   sendWeeklySummaryEmail,
 } from "@/lib/email"
+import { createLogger } from "@/lib/logger"
+
+const log = createLogger("cron/lifecycle")
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization")
@@ -218,10 +221,10 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    console.log(`[cron/lifecycle] Results:`, results)
+    log.info("Lifecycle cron completed", results as Record<string, unknown>)
     return NextResponse.json({ ok: true, ...results })
   } catch (err) {
-    console.error("[GET /api/cron/lifecycle]", err)
+    log.error("Lifecycle cron failed", {}, err instanceof Error ? err : undefined)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

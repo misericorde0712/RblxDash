@@ -2,6 +2,9 @@ import { NextResponse } from "next/server"
 import { OrgRole } from "@prisma/client"
 import { getCurrentOrgForApi } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { createLogger } from "@/lib/logger"
+
+const log = createLogger("roblox/my-games")
 
 type RobloxGame = {
   id: number
@@ -109,11 +112,16 @@ export async function GET() {
       }
     }
 
-    console.log("[my-games] userId:", userId, "userGames:", userGames.length, "groups:", groups.map(g => `${g.group.name}(${g.group.id})`), "groupGames:", groupGameResults.map(r => r.length), "total:", dedupedGames.length)
+    log.info("Games fetched", {
+      userId,
+      userGames: userGames.length,
+      groups: groups.length,
+      total: dedupedGames.length,
+    })
 
     return NextResponse.json({ games: dedupedGames })
   } catch (err) {
-    console.error("[GET /api/roblox/my-games]", err)
+    log.error("Failed to fetch games", {}, err instanceof Error ? err : undefined)
     return NextResponse.json({ games: [] })
   }
 }

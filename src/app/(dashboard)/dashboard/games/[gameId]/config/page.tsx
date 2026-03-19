@@ -32,7 +32,7 @@ export default async function GameConfigPage({
 
   const isAdmin = member.role === "ADMIN" || member.role === "OWNER"
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://dashblox.desgagneweb.com"
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://rblxdash.com"
   const addonScript = buildLiveConfigAddon({
     configUrl: `${appUrl}/api/webhook/${game.id}/config`,
     webhookSecret: game.webhookSecret,

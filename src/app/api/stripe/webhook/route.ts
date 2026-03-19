@@ -4,6 +4,9 @@ import { syncSubscriptionFromStripe } from "@/lib/billing"
 import { stripe } from "@/lib/stripe"
 import { sendTrialExpiryEmail, sendPaymentFailedEmail } from "@/lib/email"
 import { prisma } from "@/lib/prisma"
+import { createLogger } from "@/lib/logger"
+
+const log = createLogger("stripe/webhook")
 
 export async function POST(req: NextRequest) {
   const signature = req.headers.get("stripe-signature")
@@ -76,13 +79,38 @@ export async function POST(req: NextRequest) {
         break
       }
 
+      case "invoice.paid": {
+        const invoice = event.data.object as Stripe.Invoice
+        const customerId = typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id
+
+        if (customerId) {
+          const dbSub = await prisma.subscription.findUnique({
+            where: { stripeCustomerId: customerId },
+          })
+          if (dbSub) {
+            await prisma.subscription.update({
+              where: { id: dbSub.id },
+              data: { status: "ACTIVE" },
+            })
+          }
+        }
+        break
+      }
+
+      case "customer.subscription.paused": {
+        const sub = event.data.object as Stripe.Subscription
+        await syncSubscriptionFromStripe(sub)
+        break
+      }
+
       default:
+        log.info("Unhandled Stripe event", { type: event.type })
         break
     }
 
     return NextResponse.json({ received: true })
   } catch (err) {
-    console.error("[POST /api/stripe/webhook]", err)
+    log.error("Webhook processing failed", {}, err instanceof Error ? err : undefined)
     return NextResponse.json(
       { error: "Webhook signature verification failed" },
       { status: 400 }

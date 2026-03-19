@@ -82,7 +82,7 @@ function baseLayout(content: string) {
               &nbsp;·&nbsp;
               <a href="${appUrl}/account" style="color:#555555;">Unsubscribe</a>
               <br/>
-              RblxDash, dashblox.desgagneweb.com — You are receiving this because you have an active account.
+              RblxDash — You are receiving this because you have an active account.
             </td>
           </tr>
         </table>
