@@ -84,25 +84,45 @@ async function fetchAuthorizedUniverseIds(accessToken: string): Promise<{ univer
   return { universeIds, hasUniversalAccess }
 }
 
-async function fetchUniverseDetails(universeIds: string[]): Promise<GameEntry[]> {
+async function fetchUniverseDetailsWithOAuth(
+  universeIds: string[],
+  accessToken: string
+): Promise<GameEntry[]> {
   if (universeIds.length === 0) return []
 
-  // Roblox public API accepts comma-separated universe IDs (up to 100)
-  const res = await fetch(
-    `https://games.roblox.com/v1/games?universeIds=${universeIds.join(",")}`,
-    { cache: "no-store" }
+  // Fetch each universe via Open Cloud API (supports private games with OAuth token)
+  const results = await Promise.all(
+    universeIds.map(async (id) => {
+      const res = await fetch(
+        `https://apis.roblox.com/cloud/v2/universes/${id}`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          cache: "no-store",
+        }
+      )
+
+      if (!res.ok) {
+        log.info("Failed to fetch universe details", { universeId: id, status: res.status })
+        return null
+      }
+
+      const data = (await res.json()) as {
+        id?: string
+        displayName?: string
+        rootPlaceId?: string
+      }
+
+      return {
+        universeId: data.id ?? id,
+        placeId: data.rootPlaceId ?? "",
+        name: data.displayName || `Universe ${id}`,
+        placeVisits: 0,
+        source: "oauth",
+      } satisfies GameEntry
+    })
   )
 
-  if (!res.ok) return []
-
-  const data = (await res.json()) as { data?: RobloxGame[] }
-  return (data.data ?? []).map((g) => ({
-    universeId: String(g.id),
-    placeId: getPlaceId(g),
-    name: g.name,
-    placeVisits: g.placeVisits ?? 0,
-    source: "oauth",
-  }))
+  return results.filter((g): g is GameEntry => g !== null)
 }
 
 async function fetchGamesWithOAuth(
@@ -117,7 +137,7 @@ async function fetchGamesWithOAuth(
     hasUniversalAccess,
   })
 
-  const games = await fetchUniverseDetails(universeIds)
+  const games = await fetchUniverseDetailsWithOAuth(universeIds, accessToken)
 
   // If user granted universal access ("U"), also fetch their public games
   if (hasUniversalAccess) {
