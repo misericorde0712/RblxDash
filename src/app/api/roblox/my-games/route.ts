@@ -3,6 +3,7 @@ import { OrgRole } from "@prisma/client"
 import { getCurrentOrgForApi } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { ensureRobloxAccessToken } from "@/lib/roblox-connection"
+import { getRobloxOAuthConfig } from "@/lib/roblox-oauth"
 import { createLogger } from "@/lib/logger"
 
 const log = createLogger("roblox/my-games")
@@ -31,68 +32,84 @@ function getPlaceId(g: RobloxGame): string {
   return String(g.rootPlaceId ?? g.rootPlace?.id ?? "")
 }
 
-// ─── Authenticated fetch (OAuth token) ──────────────────────────────────────
+// ─── Authenticated fetch (OAuth token resources) ────────────────────────────
 
-type OpenCloudUniverse = {
-  path: string
-  displayName: string
-  createTime?: string
-  updateTime?: string
-  rootPlacePath?: string
+type TokenResourceInfo = {
+  owner: { id: string; type: string }
+  resources: {
+    universe?: { ids: string[] }
+    [key: string]: { ids: string[] } | undefined
+  }
+}
+
+async function fetchAuthorizedUniverseIds(accessToken: string): Promise<string[]> {
+  const config = getRobloxOAuthConfig()
+  if (!config) return []
+
+  const body = new URLSearchParams({
+    token: accessToken,
+    client_id: config.clientId,
+    client_secret: config.clientSecret,
+  })
+
+  const res = await fetch("https://apis.roblox.com/oauth/v1/token/resources", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+    cache: "no-store",
+  })
+
+  if (!res.ok) {
+    log.info("Token resources fetch failed", { status: res.status })
+    return []
+  }
+
+  const data = (await res.json()) as { resource_infos?: TokenResourceInfo[] }
+  const universeIds: string[] = []
+
+  for (const info of data.resource_infos ?? []) {
+    for (const id of info.resources?.universe?.ids ?? []) {
+      // "U" means all universes owned by the user — skip it, we'll get those from the public API
+      if (id !== "U") {
+        universeIds.push(id)
+      }
+    }
+  }
+
+  return universeIds
+}
+
+async function fetchUniverseDetails(universeIds: string[]): Promise<GameEntry[]> {
+  if (universeIds.length === 0) return []
+
+  // Roblox public API accepts comma-separated universe IDs (up to 100)
+  const res = await fetch(
+    `https://games.roblox.com/v1/games?universeIds=${universeIds.join(",")}`,
+    { cache: "no-store" }
+  )
+
+  if (!res.ok) return []
+
+  const data = (await res.json()) as { data?: RobloxGame[] }
+  return (data.data ?? []).map((g) => ({
+    universeId: String(g.id),
+    placeId: getPlaceId(g),
+    name: g.name,
+    placeVisits: g.placeVisits ?? 0,
+    source: "oauth",
+  }))
 }
 
 async function fetchGamesWithOAuth(
-  robloxUserId: string,
+  _robloxUserId: string,
   accessToken: string
 ): Promise<GameEntry[]> {
-  const games: GameEntry[] = []
-  let nextPageToken: string | undefined
+  const universeIds = await fetchAuthorizedUniverseIds(accessToken)
+  if (universeIds.length === 0) return []
 
-  for (let page = 0; page < 5; page++) {
-    const url = new URL(
-      `https://apis.roblox.com/cloud/v2/users/${robloxUserId}/universes`
-    )
-    url.searchParams.set("maxPageSize", "50")
-    if (nextPageToken) url.searchParams.set("pageToken", nextPageToken)
+  log.info("OAuth authorized universes found", { count: universeIds.length, universeIds })
 
-    const res = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      cache: "no-store",
-    })
-
-    if (!res.ok) {
-      log.info("OAuth universe fetch failed, falling back to public API", {
-        status: res.status,
-      })
-      return []
-    }
-
-    const data = (await res.json()) as {
-      universes?: OpenCloudUniverse[]
-      nextPageToken?: string
-    }
-
-    for (const u of data.universes ?? []) {
-      // path format: "universes/123"
-      const universeId = u.path?.split("/")[1] ?? ""
-      // rootPlacePath format: "universes/123/places/456"
-      const placeId = u.rootPlacePath?.split("/")[3] ?? ""
-      if (universeId) {
-        games.push({
-          universeId,
-          placeId,
-          name: u.displayName || `Universe ${universeId}`,
-          placeVisits: 0,
-          source: "oauth",
-        })
-      }
-    }
-
-    nextPageToken = data.nextPageToken
-    if (!nextPageToken) break
-  }
-
-  return games
+  return fetchUniverseDetails(universeIds)
 }
 
 // ─── Public API fallback (no auth needed) ───────────────────────────────────
