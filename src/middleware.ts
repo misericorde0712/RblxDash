@@ -56,8 +56,6 @@ export default clerkMiddleware(
     }
 
     // ─── Rate limiting ────────────────────────────────────────
-    const { pathname } = req.nextUrl
-
     if (isApiV1Route(req)) {
       const key = getRateLimitKey(req, "v1")
       const rl = await checkRateLimit(key, RATE_LIMITS.api)

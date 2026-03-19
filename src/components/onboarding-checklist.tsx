@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Link from "next/link"
 
 type Step = {
@@ -9,6 +9,15 @@ type Step = {
   description: string
   href: string
   completed: boolean
+}
+
+function getInitialDismissed(): boolean {
+  if (typeof window === "undefined") return false
+  try {
+    return localStorage.getItem("rd-checklist-dismissed") === "true"
+  } catch {
+    return false
+  }
 }
 
 export default function OnboardingChecklist({
@@ -22,15 +31,7 @@ export default function OnboardingChecklist({
   hasTeamMember: boolean
   hasBilling: boolean
 }) {
-  const [dismissed, setDismissed] = useState(false)
-
-  useEffect(() => {
-    try {
-      if (localStorage.getItem("rd-checklist-dismissed") === "true") {
-        setDismissed(true)
-      }
-    } catch {}
-  }, [])
+  const [dismissed, setDismissed] = useState(getInitialDismissed)
 
   const steps: Step[] = [
     {
@@ -42,32 +43,31 @@ export default function OnboardingChecklist({
     },
     {
       id: "webhook",
-      label: "Receive your first event",
-      description: "Paste the Luau script, publish, and join your game once.",
-      href: "/dashboard/logs",
+      label: "Send your first event",
+      description: "Install the Luau module and fire an HTTP request.",
+      href: "/dashboard/guide",
       completed: hasWebhookEvent,
     },
     {
       id: "team",
       label: "Invite a team member",
-      description: "Add a moderator or admin to your workspace.",
+      description: "Share your workspace with colleagues or moderators.",
       href: "/dashboard/settings",
       completed: hasTeamMember,
     },
     {
       id: "billing",
-      label: "Set up billing",
-      description: "Add a payment method to keep Pro features after your trial.",
-      href: "/account",
+      label: "Upgrade your plan",
+      description: "Unlock moderation, analytics, and more.",
+      href: "/dashboard/billing",
       completed: hasBilling,
     },
   ]
 
   const completedCount = steps.filter((s) => s.completed).length
-  const allDone = completedCount === steps.length
-  const progress = Math.round((completedCount / steps.length) * 100)
+  const allCompleted = completedCount === steps.length
 
-  if (dismissed || allDone) return null
+  if (dismissed || allCompleted) return null
 
   function handleDismiss() {
     setDismissed(true)
@@ -78,13 +78,13 @@ export default function OnboardingChecklist({
 
   return (
     <div
-      className="rounded-xl"
-      style={{ background: "#1e1e1e", border: "1px solid #2a2a2a" }}
+      className="rounded-2xl border p-6"
+      style={{ background: "#1e1e1e", borderColor: "#2a2a2a" }}
     >
-      <div className="flex items-center justify-between px-5 pt-5 pb-4">
+      <div className="mb-4 flex items-center justify-between">
         <div>
-          <p className="text-sm font-semibold text-white">Get started with RblxDash</p>
-          <p className="mt-0.5 text-xs" style={{ color: "#888888" }}>
+          <p className="rd-label">Getting started</p>
+          <p className="mt-1 text-xs" style={{ color: "#666666" }}>
             {completedCount}/{steps.length} completed
           </p>
         </div>
@@ -97,68 +97,49 @@ export default function OnboardingChecklist({
         </button>
       </div>
 
-      {/* Progress bar */}
-      <div className="mx-5 mb-4 h-1.5 rounded-full" style={{ background: "#2a2a2a" }}>
+      <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: "#2a2a2a" }}>
         <div
-          className="h-full rounded-full transition-all duration-500"
-          style={{ width: `${progress}%`, background: "#e8822a" }}
+          className="h-full rounded-full transition-all"
+          style={{
+            width: `${(completedCount / steps.length) * 100}%`,
+            background: "#e8822a",
+          }}
         />
       </div>
 
-      <ul>
-        {steps.map((step, i) => (
-          <li
-            key={step.id}
-            className="flex items-start gap-3 px-5 py-3"
-            style={{
-              borderTop: "1px solid #242424",
-              opacity: step.completed ? 0.5 : 1,
-            }}
-          >
-            {/* Checkbox */}
-            <div
-              className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
-              style={{
-                background: step.completed ? "#e8822a" : "transparent",
-                border: step.completed ? "none" : "2px solid #444444",
-              }}
+      <ul className="mt-5 space-y-3">
+        {steps.map((step) => (
+          <li key={step.id}>
+            <Link
+              href={step.href}
+              className="flex items-start gap-3 rounded-xl p-3 transition-colors hover:bg-[#252525]"
             >
-              {step.completed && (
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                  <path d="M2 5l2.5 2.5L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              )}
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <p
-                className="text-sm font-medium"
+              <span
+                className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs"
                 style={{
-                  color: step.completed ? "#888888" : "#ffffff",
-                  textDecoration: step.completed ? "line-through" : "none",
+                  background: step.completed
+                    ? "rgba(74,222,128,0.15)"
+                    : "#2a2a2a",
+                  color: step.completed ? "#4ade80" : "#666666",
+                  border: step.completed
+                    ? "1px solid rgba(74,222,128,0.3)"
+                    : "1px solid #3a3a3a",
                 }}
               >
-                {step.label}
-              </p>
-              {!step.completed && (
-                <p className="mt-0.5 text-xs" style={{ color: "#888888" }}>
+                {step.completed ? "✓" : ""}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p
+                  className="text-sm font-medium"
+                  style={{ color: step.completed ? "#9ca3af" : "#fff" }}
+                >
+                  {step.label}
+                </p>
+                <p className="mt-0.5 text-xs" style={{ color: "#666666" }}>
                   {step.description}
                 </p>
-              )}
-            </div>
-
-            {!step.completed && (
-              <Link
-                href={step.href}
-                className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
-                style={{
-                  background: i === completedCount ? "#e8822a" : "rgba(232,130,42,0.1)",
-                  color: i === completedCount ? "#ffffff" : "#e8822a",
-                }}
-              >
-                {i === completedCount ? "Start" : "Do this"}
-              </Link>
-            )}
+              </div>
+            </Link>
           </li>
         ))}
       </ul>

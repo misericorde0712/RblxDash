@@ -1,29 +1,29 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useCallback } from "react"
 type Milestone = { id: string; title: string; description: string }
 
+function getUnseen(milestones: Milestone[]): Milestone[] {
+  if (typeof window === "undefined") return []
+  try {
+    const dismissed = JSON.parse(localStorage.getItem("rd-celebrations") || "[]") as string[]
+    return milestones.filter((m) => !dismissed.includes(m.id))
+  } catch {
+    return milestones
+  }
+}
+
 export default function CelebrationToast({ milestones }: { milestones: Milestone[] }) {
-  const [visible, setVisible] = useState<Milestone[]>([])
+  const [visible, setVisible] = useState<Milestone[]>(() => getUnseen(milestones))
 
-  useEffect(() => {
-    try {
-      const dismissed = JSON.parse(localStorage.getItem("rd-celebrations") || "[]") as string[]
-      const unseen = milestones.filter((m) => !dismissed.includes(m.id))
-      setVisible(unseen)
-    } catch {
-      setVisible(milestones)
-    }
-  }, [milestones])
-
-  function dismiss(id: string) {
+  const dismiss = useCallback((id: string) => {
     setVisible((prev) => prev.filter((m) => m.id !== id))
     try {
       const dismissed = JSON.parse(localStorage.getItem("rd-celebrations") || "[]") as string[]
       dismissed.push(id)
       localStorage.setItem("rd-celebrations", JSON.stringify(dismissed))
     } catch {}
-  }
+  }, [])
 
   if (visible.length === 0) return null
 
@@ -64,4 +64,3 @@ export default function CelebrationToast({ milestones }: { milestones: Milestone
     </div>
   )
 }
-
