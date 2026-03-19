@@ -283,7 +283,7 @@ export async function POST(
     // Send "game connected" email on first event for this game
     const totalLogs = await prisma.gameLog.count({ where: { gameId } })
     if (totalLogs === 1 && game.org) {
-      const owner = await prisma.membership.findFirst({
+      const owner = await prisma.orgMember.findFirst({
         where: { orgId: game.orgId, role: "OWNER" },
         include: { user: { select: { email: true, name: true } } },
       })
