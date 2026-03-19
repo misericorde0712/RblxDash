@@ -198,9 +198,11 @@ export function getOwnedOrganizationSummary(params: {
     maxOrganizations,
     ownedOrganizationsCount: params.ownedOrganizationsCount,
     canCreateOrganization:
-      hasActivePlan &&
-      (!Number.isFinite(maxOrganizations) ||
-        params.ownedOrganizationsCount < maxOrganizations),
+      // Always allow creating the first workspace (onboarding), even without a paid plan
+      params.ownedOrganizationsCount === 0 ||
+      (hasActivePlan &&
+        (!Number.isFinite(maxOrganizations) ||
+          params.ownedOrganizationsCount < maxOrganizations)),
   }
 }
 
