@@ -107,16 +107,17 @@ async function fetchUniverseDetailsWithOAuth(
       }
 
       const data = (await res.json()) as {
-        id?: string
+        path?: string
         displayName?: string
-        rootPlaceId?: string
+        rootPlace?: string
       }
 
-      log.info("Universe details fetched", { universeId: id, data: JSON.stringify(data) })
+      // rootPlace format: "universes/123/places/456"
+      const placeId = data.rootPlace?.split("/")[3] ?? ""
 
       return {
-        universeId: data.id ?? id,
-        placeId: data.rootPlaceId ?? "",
+        universeId: id,
+        placeId,
         name: data.displayName || `Universe ${id}`,
         placeVisits: 0,
         source: "oauth",
