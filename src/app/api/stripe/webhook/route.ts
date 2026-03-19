@@ -8,7 +8,8 @@ import { prisma } from "@/lib/prisma"
 export async function POST(req: NextRequest) {
   const signature = req.headers.get("stripe-signature")
 
-  if (!signature || !process.env.STRIPE_WEBHOOK_SECRET) {
+  const { env } = await import("@/lib/env.server")
+  if (!signature || !env.STRIPE_WEBHOOK_SECRET) {
     return NextResponse.json(
       { error: "Missing Stripe webhook configuration" },
       { status: 400 }
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
     const event = stripe.webhooks.constructEvent(
       body,
       signature,
-      process.env.STRIPE_WEBHOOK_SECRET
+      env.STRIPE_WEBHOOK_SECRET
     )
 
     switch (event.type) {

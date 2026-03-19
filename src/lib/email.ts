@@ -19,7 +19,8 @@ async function sendEmail({
   subject: string
   html: string
 }) {
-  const apiKey = process.env.RESEND_API_KEY
+  const { env } = await import("@/lib/env.server")
+  const apiKey = env.RESEND_API_KEY
   if (!apiKey) {
     console.warn("[email] RESEND_API_KEY non configuré — email ignoré")
     return

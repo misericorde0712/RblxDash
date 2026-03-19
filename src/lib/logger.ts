@@ -49,6 +49,11 @@ function emit(entry: LogEntry) {
   switch (entry.level) {
     case "error":
       console.error(line, entry.error ?? "")
+      if (entry.error) {
+        import("@sentry/nextjs")
+          .then((Sentry) => Sentry.captureException(entry.error, { extra: entry.data }))
+          .catch(() => {})
+      }
       break
     case "warn":
       console.warn(line)

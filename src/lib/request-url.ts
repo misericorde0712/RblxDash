@@ -26,7 +26,7 @@ export function getRequestOrigin(req: RequestLike) {
     return `${resolvedProto}://${resolvedHost}`
   }
 
-  return process.env.NEXT_PUBLIC_APP_URL?.trim() ?? new URL(req.url).origin
+  return (process.env.NEXT_PUBLIC_APP_URL ?? "")?.trim() || new URL(req.url).origin
 }
 
 export function toAbsoluteUrl(req: RequestLike, pathname: string) {

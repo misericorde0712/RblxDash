@@ -1,8 +1,9 @@
 import Stripe from "stripe"
 import type { Subscription, Plan, SubscriptionStatus } from "@prisma/client"
 import type { ModuleId } from "@/types"
+import { env } from "@/lib/env.server"
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+export const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
   apiVersion: "2026-02-25.clover",
 })
 
@@ -49,8 +50,8 @@ export const PLANS: Record<Plan, PlanConfig> = {
 }
 
 export const STRIPE_PRICE_IDS: Record<PaidPlan, string | undefined> = {
-  PRO: process.env.STRIPE_PRICE_PRO,
-  STUDIO: process.env.STRIPE_PRICE_STUDIO,
+  PRO: env.STRIPE_PRICE_PRO,
+  STUDIO: env.STRIPE_PRICE_STUDIO,
 }
 
 export function getPlanState(

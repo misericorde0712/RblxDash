@@ -8,11 +8,11 @@ import { NextResponse } from "next/server"
  */
 
 export function isMaintenanceMode(): boolean {
-  return process.env.MAINTENANCE_MODE === "true"
+  return (process.env.MAINTENANCE_MODE ?? "") === "true"
 }
 
 export function isIpAllowed(ip: string | null): boolean {
-  const allowedIps = process.env.MAINTENANCE_ALLOWED_IPS
+  const allowedIps = process.env.MAINTENANCE_ALLOWED_IPS ?? ""
   if (!allowedIps) return false
   if (!ip) return false
   return allowedIps.split(",").map((s) => s.trim()).includes(ip)

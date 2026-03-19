@@ -1,22 +1,6 @@
+import { Ratelimit } from "@upstash/ratelimit"
+import { Redis } from "@upstash/redis"
 import { NextResponse } from "next/server"
-
-type RateLimitEntry = {
-  count: number
-  resetAt: number
-}
-
-const store = new Map<string, RateLimitEntry>()
-
-// Nettoyage périodique des entrées expirées (toutes les 60s)
-let lastCleanup = Date.now()
-function cleanup() {
-  const now = Date.now()
-  if (now - lastCleanup < 60_000) return
-  lastCleanup = now
-  for (const [key, entry] of store) {
-    if (now > entry.resetAt) store.delete(key)
-  }
-}
 
 type RateLimitConfig = {
   /** Nombre max de requêtes dans la fenêtre */
@@ -41,48 +25,73 @@ type RateLimitResult =
   | { limited: false; remaining: number; resetAt: number }
   | { limited: true; remaining: 0; resetAt: number; response: NextResponse }
 
+// ─── Upstash Redis (optionnel — fallback permissif si non configuré) ────
+
+const redis =
+  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+    ? new Redis({
+        url: process.env.UPSTASH_REDIS_REST_URL,
+        token: process.env.UPSTASH_REDIS_REST_TOKEN,
+      })
+    : null
+
+const limiterCache = new Map<string, Ratelimit>()
+
+function getLimiter(config: RateLimitConfig): Ratelimit | null {
+  if (!redis) return null
+
+  const cacheKey = `${config.limit}:${config.windowSeconds}`
+  let limiter = limiterCache.get(cacheKey)
+  if (!limiter) {
+    limiter = new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(config.limit, `${config.windowSeconds} s`),
+      prefix: "rblxdash",
+    })
+    limiterCache.set(cacheKey, limiter)
+  }
+  return limiter
+}
+
 /**
  * Vérifie le rate limit pour une clé donnée.
  * Retourne `limited: true` avec une NextResponse 429 si la limite est atteinte.
  */
-export function checkRateLimit(
+export async function checkRateLimit(
   key: string,
   config: RateLimitConfig
-): RateLimitResult {
-  cleanup()
+): Promise<RateLimitResult> {
+  const limiter = getLimiter(config)
 
-  const now = Date.now()
-  const entry = store.get(key)
-
-  if (!entry || now > entry.resetAt) {
-    store.set(key, { count: 1, resetAt: now + config.windowSeconds * 1000 })
-    return { limited: false, remaining: config.limit - 1, resetAt: now + config.windowSeconds * 1000 }
+  // Fallback permissif en dev (pas d'Upstash configuré)
+  if (!limiter) {
+    return { limited: false, remaining: config.limit, resetAt: Date.now() + config.windowSeconds * 1000 }
   }
 
-  entry.count++
+  const result = await limiter.limit(key)
 
-  if (entry.count > config.limit) {
-    const retryAfter = Math.ceil((entry.resetAt - now) / 1000)
+  if (!result.success) {
+    const retryAfter = Math.ceil((result.reset - Date.now()) / 1000)
     return {
       limited: true,
       remaining: 0,
-      resetAt: entry.resetAt,
+      resetAt: result.reset,
       response: NextResponse.json(
         { error: { code: "RATE_LIMITED", message: "Too many requests. Please retry later." } },
         {
           status: 429,
           headers: {
-            "Retry-After": String(retryAfter),
+            "Retry-After": String(Math.max(retryAfter, 1)),
             "X-RateLimit-Limit": String(config.limit),
             "X-RateLimit-Remaining": "0",
-            "X-RateLimit-Reset": String(Math.ceil(entry.resetAt / 1000)),
+            "X-RateLimit-Reset": String(Math.ceil(result.reset / 1000)),
           },
         }
       ),
     }
   }
 
-  return { limited: false, remaining: config.limit - entry.count, resetAt: entry.resetAt }
+  return { limited: false, remaining: result.remaining, resetAt: result.reset }
 }
 
 /**

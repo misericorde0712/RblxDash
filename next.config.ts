@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   async headers() {
@@ -31,7 +32,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline' https://api.fontshare.com",
               "font-src 'self' https://cdn.fontshare.com",
               "img-src 'self' data: blob: https://*.roblox.com https://tr.rbxcdn.com https://thumbnails.roblox.com https://img.clerk.com",
-              "connect-src 'self' https://*.clerk.accounts.dev https://api.stripe.com https://*.roblox.com https://api.resend.com",
+              "connect-src 'self' https://*.clerk.accounts.dev https://api.stripe.com https://*.roblox.com https://api.resend.com https://*.sentry.io https://*.ingest.sentry.io",
               "frame-src 'self' https://js.stripe.com https://*.clerk.accounts.dev https://challenges.cloudflare.com",
               "object-src 'none'",
               "base-uri 'self'",
@@ -56,4 +57,10 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG ?? "rblxdash",
+  project: process.env.SENTRY_PROJECT ?? "rblxdash-web",
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+  tunnelRoute: "/monitoring",
+});

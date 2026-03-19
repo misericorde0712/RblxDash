@@ -1,47 +1,29 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
-import { checkRateLimit, getRateLimitKey } from "../rate-limit"
+
+// Mock Upstash — no Redis in tests
+vi.stubEnv("UPSTASH_REDIS_REST_URL", "")
+vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "")
+
+const { checkRateLimit, getRateLimitKey } = await import("../rate-limit")
 
 describe("checkRateLimit", () => {
   beforeEach(() => {
-    // Avancer le temps pour invalider les entrées précédentes
-    vi.useFakeTimers()
+    vi.clearAllMocks()
   })
 
-  it("autorise les requêtes sous la limite", () => {
+  it("autorise toutes les requêtes sans Upstash (fallback dev)", async () => {
     const config = { limit: 5, windowSeconds: 60 }
-    const result = checkRateLimit("test:1", config)
+    const result = await checkRateLimit("test:1", config)
     expect(result.limited).toBe(false)
-    expect(result.remaining).toBe(4)
+    expect(result.remaining).toBe(5)
   })
 
-  it("bloque après dépassement de la limite", () => {
-    const config = { limit: 3, windowSeconds: 60 }
-    checkRateLimit("test:2", config)
-    checkRateLimit("test:2", config)
-    checkRateLimit("test:2", config)
-    const result = checkRateLimit("test:2", config)
-    expect(result.limited).toBe(true)
-    expect(result.remaining).toBe(0)
-  })
-
-  it("réinitialise après expiration de la fenêtre", () => {
-    const config = { limit: 1, windowSeconds: 1 }
-    checkRateLimit("test:3", config)
-    const blocked = checkRateLimit("test:3", config)
-    expect(blocked.limited).toBe(true)
-
-    // Avancer de 2 secondes
-    vi.advanceTimersByTime(2000)
-    const after = checkRateLimit("test:3", config)
-    expect(after.limited).toBe(false)
-  })
-
-  it("retourne une réponse 429 avec Retry-After", () => {
-    const config = { limit: 1, windowSeconds: 30 }
-    checkRateLimit("test:4", config)
-    const result = checkRateLimit("test:4", config)
-    if (!result.limited) throw new Error("Expected limited")
-    expect(result.response.status).toBe(429)
+  it("retourne le bon format en mode fallback", async () => {
+    const config = { limit: 10, windowSeconds: 30 }
+    const result = await checkRateLimit("test:2", config)
+    expect(result.limited).toBe(false)
+    expect(result.remaining).toBe(10)
+    expect(result.resetAt).toBeGreaterThan(Date.now())
   })
 })
 

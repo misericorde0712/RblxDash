@@ -1,5 +1,18 @@
 import { describe, it, expect, vi } from "vitest"
 
+// Mock env.server pour éviter la validation Zod sans variables d'environnement
+vi.mock("@/lib/env.server", () => ({
+  env: {
+    DATABASE_URL: "postgresql://test",
+    STRIPE_SECRET_KEY: "sk_test_x",
+    STRIPE_WEBHOOK_SECRET: "whsec_x",
+    STRIPE_PRICE_PRO: "price_pro",
+    STRIPE_PRICE_STUDIO: "price_studio",
+    CLERK_SECRET_KEY: "sk_test_x",
+    NODE_ENV: "test",
+  },
+}))
+
 // Mock Stripe pour éviter l'erreur d'initialisation sans clé API
 vi.mock("stripe", () => {
   return {

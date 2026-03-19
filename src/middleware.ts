@@ -60,19 +60,19 @@ export default clerkMiddleware(
 
     if (isApiV1Route(req)) {
       const key = getRateLimitKey(req, "v1")
-      const rl = checkRateLimit(key, RATE_LIMITS.api)
+      const rl = await checkRateLimit(key, RATE_LIMITS.api)
       if (rl.limited) return rl.response
     } else if (isWebhookRoute(req)) {
       const key = getRateLimitKey(req, "wh")
-      const rl = checkRateLimit(key, RATE_LIMITS.webhook)
+      const rl = await checkRateLimit(key, RATE_LIMITS.webhook)
       if (rl.limited) return rl.response
     } else if (isAuthRoute(req)) {
       const key = getRateLimitKey(req, "auth")
-      const rl = checkRateLimit(key, RATE_LIMITS.auth)
+      const rl = await checkRateLimit(key, RATE_LIMITS.auth)
       if (rl.limited) return rl.response
     } else if (isApiRoute(req)) {
       const key = getRateLimitKey(req, "api")
-      const rl = checkRateLimit(key, RATE_LIMITS.internal)
+      const rl = await checkRateLimit(key, RATE_LIMITS.internal)
       if (rl.limited) return rl.response
     }
 
