@@ -9,6 +9,7 @@ type MyRobloxGame = {
   placeId: string
   name: string
   placeVisits: number
+  source?: string
 }
 
 const ALL_MODULES: { id: ModuleId; label: string; description: string }[] = [
@@ -170,13 +171,20 @@ export default function NewGameForm({
                     }
                   >
                     <p className="text-sm font-medium text-white truncate">{g.name}</p>
-                    <p className="text-xs mt-0.5 font-mono" style={{ color: "#6b7280" }}>{g.placeId}</p>
+                    <p className="text-xs mt-0.5 font-mono" style={{ color: "#6b7280" }}>
+                      {g.placeId}
+                      {g.source && g.source !== "user" && (
+                        <span className="ml-1.5 font-sans" style={{ color: "#555" }}>· {g.source}</span>
+                      )}
+                    </p>
                   </button>
                 )
               })}
             </div>
           ) : (
-            <p className="text-sm" style={{ color: "#6b7280" }}>No public games found on your Roblox account.</p>
+            <p className="text-sm" style={{ color: "#6b7280" }}>
+              No public games found on your account or groups. You can enter a Place ID manually below.
+            </p>
           )}
         </div>
       )}

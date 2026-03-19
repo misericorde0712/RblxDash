@@ -179,9 +179,9 @@ export default async function ServersPage() {
           <p className="mt-2 max-w-sm mx-auto text-sm text-[#666666]">
             Servers appear when your game sends heartbeat events. Open your Roblox game in Studio or join it to start seeing live server data.
           </p>
-          <a href="/dashboard/games" className="mt-4 inline-block rounded-lg px-4 py-2 text-xs font-medium" style={{ background: "rgba(232,130,42,0.1)", color: "#e8822a" }}>
+          <Link href="/dashboard/games" className="mt-4 inline-block rounded-lg px-4 py-2 text-xs font-medium" style={{ background: "rgba(232,130,42,0.1)", color: "#e8822a" }}>
             Check game setup
-          </a>
+          </Link>
         </div>
       ) : (
         <div className="rd-table-shell overflow-hidden">

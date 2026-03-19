@@ -39,11 +39,10 @@ export default function PlayerInventorySection({
 }) {
   const [items, setItems] = useState<InventoryItem[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(hasUniverseId)
 
   useEffect(() => {
     if (!hasUniverseId) {
-      setLoading(false)
       return
     }
 

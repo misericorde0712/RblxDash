@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { SignOutButton, UserButton } from "@clerk/nextjs"
@@ -46,17 +46,20 @@ export default function SidebarShell({
   const [mobileOpen, setMobileOpen] = useState(false)
   const pathname = usePathname()
 
-  // Close mobile menu on route change
-  useEffect(() => {
+  // Close mobile menu on route change (render-time check avoids setState in effect)
+  const prevPathname = useRef(pathname)
+  if (prevPathname.current !== pathname) {
+    prevPathname.current = pathname
     setMobileOpen(false)
-  }, [pathname])
+  }
 
-  // Read persisted state only in useEffect to avoid hydration mismatch
+  // Read persisted state only after mount to avoid hydration mismatch
   useEffect(() => {
     try {
       const stored = localStorage.getItem("rd-sidebar-collapsed")
       if (stored === "true") setCollapsed(true)
     } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function toggleCollapsed() {
