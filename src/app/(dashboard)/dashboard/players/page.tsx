@@ -245,9 +245,9 @@ export default async function PlayersPage({
               : "Players appear automatically when they join your Roblox game. Make sure the Luau script is installed and HTTP Requests are enabled."}
           </p>
           {!query && (
-            <a href="/dashboard/games" className="mt-4 inline-block rounded-lg px-4 py-2 text-xs font-medium" style={{ background: "rgba(232,130,42,0.1)", color: "#e8822a" }}>
+            <Link href="/dashboard/games" className="mt-4 inline-block rounded-lg px-4 py-2 text-xs font-medium" style={{ background: "rgba(232,130,42,0.1)", color: "#e8822a" }}>
               Check game setup
-            </a>
+            </Link>
           )}
         </div>
       ) : (
