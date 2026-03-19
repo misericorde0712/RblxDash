@@ -112,6 +112,8 @@ async function fetchUniverseDetailsWithOAuth(
         rootPlaceId?: string
       }
 
+      log.info("Universe details fetched", { universeId: id, data: JSON.stringify(data) })
+
       return {
         universeId: data.id ?? id,
         placeId: data.rootPlaceId ?? "",

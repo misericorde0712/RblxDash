@@ -87,7 +87,7 @@ export default function NewGameForm({
   }, [robloxPlaceId])
 
   function selectMyGame(game: MyRobloxGame) {
-    setSelectedMyGame(game.placeId)
+    setSelectedMyGame(game.universeId)
     setRobloxPlaceId(game.placeId)
     setRobloxUniverseId(game.universeId)
     setName(game.name)
@@ -106,8 +106,8 @@ export default function NewGameForm({
       setError(blockingMessage ?? "You cannot create a game right now.")
       return
     }
-    if (!name.trim() || !robloxPlaceId.trim()) {
-      setError("Game name and Place ID are required.")
+    if (!name.trim() || (!robloxPlaceId.trim() && !robloxUniverseId.trim())) {
+      setError("Game name and either Place ID or Universe ID are required.")
       return
     }
     if (!robloxConnection && !openCloudApiKey.trim()) {
@@ -156,7 +156,7 @@ export default function NewGameForm({
           ) : myGames.length > 0 ? (
             <div className="grid gap-2 sm:grid-cols-2 max-h-48 overflow-y-auto pr-0.5">
               {myGames.map((g) => {
-                const isSelected = selectedMyGame === g.placeId
+                const isSelected = selectedMyGame === g.universeId
                 return (
                   <button
                     key={g.placeId}
@@ -172,7 +172,7 @@ export default function NewGameForm({
                   >
                     <p className="text-sm font-medium text-white truncate">{g.name}</p>
                     <p className="text-xs mt-0.5 font-mono" style={{ color: "#6b7280" }}>
-                      {g.placeId}
+                      {g.placeId || g.universeId}
                       {g.source && g.source !== "user" && (
                         <span className="ml-1.5 font-sans" style={{ color: "#555" }}>· {g.source}</span>
                       )}
@@ -225,7 +225,6 @@ export default function NewGameForm({
             <div className="relative">
               <input
                 type="text"
-                required
                 value={robloxPlaceId}
                 onChange={(e) => setRobloxPlaceId(e.target.value)}
                 placeholder="123456789"

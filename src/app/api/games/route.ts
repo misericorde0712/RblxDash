@@ -17,11 +17,14 @@ import {
 
 const CreateGameSchema = z.object({
   name: z.string().min(1).max(100),
-  robloxPlaceId: z.string().min(1),
+  robloxPlaceId: z.string().trim().optional().default(""),
   robloxUniverseId: z.string().trim().optional(),
   openCloudApiKey: z.string().trim().optional(),
   modules: z.array(z.string()).min(1),
-})
+}).refine(
+  (data) => data.robloxPlaceId || data.robloxUniverseId,
+  { message: "Either Place ID or Universe ID is required", path: ["robloxPlaceId"] }
+)
 
 export async function GET() {
   try {
