@@ -27,10 +27,12 @@ export function buildRobloxBootstrapScript(params: {
   webhookUrl: string
   webhookSecret: string
   moderationUrl: string
+  configUrl: string
 }) {
   const escapedWebhookUrl = escapeLuaString(params.webhookUrl)
   const escapedWebhookSecret = escapeLuaString(params.webhookSecret)
   const escapedModerationUrl = escapeLuaString(params.moderationUrl)
+  const escapedConfigUrl = escapeLuaString(params.configUrl)
 
   return `local ServerScriptService = game:GetService("ServerScriptService")
 local DashbloxRuntime = require(ServerScriptService:WaitForChild("DashbloxRuntime"))
@@ -39,10 +41,12 @@ DashbloxRuntime.start({
     webhookUrl = "${escapedWebhookUrl}",
     webhookSecret = "${escapedWebhookSecret}",
     moderationUrl = "${escapedModerationUrl}",
+    configUrl = "${escapedConfigUrl}",
     heartbeatSeconds = 30,
     moderationPollSeconds = 60,
     enablePlayerLifecycle = true,
     enableModeration = true,
+    enableLiveConfig = true,
 })`
 }
 
@@ -58,6 +62,8 @@ local LEGACY_BRIDGE_NAME_DEFAULT = "RblxDashEvent"
 local TRACK_EVENT_FUNCTION_NAME = "TrackEvent"
 local TRACK_ECONOMY_FUNCTION_NAME = "TrackEconomy"
 local TRACK_PROGRESSION_FUNCTION_NAME = "TrackProgression"
+local GET_CONFIG_FUNCTION_NAME = "GetConfig"
+local GET_ALL_CONFIG_FUNCTION_NAME = "GetAllConfig"
 
 local Runtime = {}
 
@@ -68,6 +74,10 @@ local state = {
     serverJobId = nil,
     stopNotified = false,
 }
+
+local liveConfigData = {}
+local liveConfigVersion = nil
+local liveConfigChangedEvent = Instance.new("BindableEvent")
 
 local function clonePayload(payload)
     local copy = {}
@@ -514,6 +524,59 @@ local function applyInstantModeration(data)
     end
 end
 
+local function fetchLiveConfig()
+    local config = getConfig()
+    if not config.configUrl or config.configUrl == "" then
+        return false
+    end
+
+    local headers = {
+        ["x-webhook-secret"] = config.webhookSecret,
+    }
+
+    if liveConfigVersion then
+        headers["If-None-Match"] = '"v' .. tostring(liveConfigVersion) .. '"'
+    end
+
+    local success, response = pcall(function()
+        return HttpService:RequestAsync({
+            Url = config.configUrl,
+            Method = "GET",
+            Headers = headers,
+        })
+    end)
+
+    if not success then
+        log("LiveConfig fetch failed: " .. tostring(response))
+        return false
+    end
+
+    if response.StatusCode == 304 then
+        return false
+    end
+
+    if not response.Success then
+        log("LiveConfig fetch rejected: " .. tostring(response.StatusCode))
+        return false
+    end
+
+    local decodeOk, decoded = pcall(function()
+        return HttpService:JSONDecode(response.Body)
+    end)
+
+    if not decodeOk or type(decoded) ~= "table" then
+        return false
+    end
+
+    local oldConfig = liveConfigData
+    liveConfigData = decoded.config or {}
+    liveConfigVersion = decoded.version
+
+    log("LiveConfig updated to v" .. tostring(decoded.version))
+    liveConfigChangedEvent:Fire(liveConfigData, oldConfig)
+    return true
+end
+
 function Runtime.start(config)
     if state.started then
         log("DashbloxRuntime.start() was already called")
@@ -540,6 +603,7 @@ function Runtime.start(config)
         webhookUrl = config.webhookUrl,
         webhookSecret = config.webhookSecret,
         moderationUrl = config.moderationUrl,
+        configUrl = config.configUrl or "",
         apiFolderName = config.apiFolderName or API_FOLDER_NAME_DEFAULT,
         legacyBridgeName = config.legacyBridgeName or LEGACY_BRIDGE_NAME_DEFAULT,
         sourceName = config.sourceName or "roblox",
@@ -547,6 +611,7 @@ function Runtime.start(config)
         moderationPollSeconds = config.moderationPollSeconds or 10,
         enablePlayerLifecycle = config.enablePlayerLifecycle ~= false,
         enableModeration = config.enableModeration ~= false,
+        enableLiveConfig = config.enableLiveConfig ~= false,
     }
     state.started = true
     state.startedAt = os.time()
@@ -572,6 +637,26 @@ function Runtime.start(config)
         return trackProgression(player, stepName, payload)
     end)
 
+    ensureBindableFunction(apiFolder, GET_CONFIG_FUNCTION_NAME, function(key, defaultValue)
+        local value = liveConfigData[key]
+        if value == nil then
+            return defaultValue
+        end
+        return value
+    end)
+
+    ensureBindableFunction(apiFolder, GET_ALL_CONFIG_FUNCTION_NAME, function()
+        local copy = {}
+        for k, v in pairs(liveConfigData) do
+            copy[k] = v
+        end
+        return copy
+    end)
+
+    local configChangedBridge = ensureBindableEvent(apiFolder, "ConfigChanged")
+    liveConfigChangedEvent.Event:Connect(function(newConfig, oldConfig)
+        configChangedBridge:Fire(newConfig, oldConfig)
+    end)
 
     sendEvent("server_started", buildServerPayload(), nil)
 
@@ -654,6 +739,39 @@ function Runtime.start(config)
                         applyModeration(player)
                     end)
                 end
+            end
+        end)
+    end
+
+    -- Live Config
+    if activeConfig.enableLiveConfig and activeConfig.configUrl ~= "" then
+        -- Initial fetch
+        task.spawn(function()
+            fetchLiveConfig()
+        end)
+
+        -- Instant updates via MessagingService
+        task.spawn(function()
+            local ok, err = pcall(function()
+                MessagingService:SubscribeAsync("RblxDash_LiveConfig", function(message)
+                    task.defer(function()
+                        fetchLiveConfig()
+                    end)
+                end)
+            end)
+
+            if ok then
+                log("LiveConfig subscribed to MessagingService for instant updates")
+            else
+                log("LiveConfig MessagingService subscribe failed: " .. tostring(err))
+            end
+        end)
+
+        -- Polling fallback
+        task.spawn(function()
+            while true do
+                task.wait(60)
+                fetchLiveConfig()
             end
         end)
     end

@@ -457,33 +457,30 @@ export default function LiveConfigManager({
           className="rounded-xl p-5"
           style={{ background: "#1e1e1e", border: "1px solid #2a2a2a" }}
         >
-          <p className="text-sm font-semibold text-white mb-3">Luau usage</p>
+          <p className="text-sm font-semibold text-white mb-3">How to use in your game</p>
           <p className="text-xs mb-3" style={{ color: "#888888" }}>
-            Require the Live Config add-on module from any server script:
+            Live Config is built into the DashbloxRuntime script — no extra module needed. Re-download your script from the game page if you haven{"'"}t updated it recently. Then read configs from any server script:
           </p>
           <pre
             className="overflow-x-auto rounded-lg p-4 text-xs font-mono"
             style={{ background: "#111111", color: "#d1d5db" }}
           >
-{`local ServerScriptService = game:GetService("ServerScriptService")
-local LiveConfig = require(ServerScriptService:WaitForChild("RblxDashLiveConfig"))
+{`local ServerStorage = game:GetService("ServerStorage")
+local RblxDash = ServerStorage:WaitForChild("RblxDash")
+local GetConfig = RblxDash:WaitForChild("GetConfig")
+local GetAllConfig = RblxDash:WaitForChild("GetAllConfig")
 
--- Get a single value (returns nil if not found)
-local maxPlayers = LiveConfig.get("game.maxPlayers")
+-- Read a single value (with optional default)
+local maxPlayers = GetConfig:Invoke("game.maxPlayers", 20)
 
--- Get a value with a default fallback
-local difficulty = LiveConfig.get("game.difficulty", "normal")
+-- Read all configs as a table
+local allConfigs = GetAllConfig:Invoke()
 
--- Get all configs as a table
-local allConfigs = LiveConfig.getAll()
-
--- Listen for config changes (fires every time the poll detects new values)
-LiveConfig.onChanged:Connect(function(newConfig, oldConfig)
-    print("Config updated to v" .. tostring(LiveConfig.getVersion()))
-end)
-
--- Force an immediate refresh
-LiveConfig.refresh()`}
+-- React when configs change in real-time
+local ConfigChanged = RblxDash:WaitForChild("ConfigChanged")
+ConfigChanged.Event:Connect(function(newConfig, oldConfig)
+    print("Configs updated!")
+end)`}
           </pre>
         </div>
       )}
