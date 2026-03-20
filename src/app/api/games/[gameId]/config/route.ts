@@ -11,6 +11,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { requireCurrentOrg } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { ensureRobloxAccessToken } from "@/lib/roblox-connection"
+import { publishMessagingServiceMessage } from "@/lib/roblox-open-cloud"
 
 const VALUE_TYPES = ["string", "number", "boolean", "json"] as const
 
@@ -46,7 +48,7 @@ async function resolveGameForOrg(gameId: string) {
 
   const game = await prisma.game.findFirst({
     where: { id: gameId, orgId: org.id },
-    select: { id: true, orgId: true },
+    select: { id: true, orgId: true, robloxUniverseId: true, robloxConnection: { select: { userId: true, scopes: true } } },
   })
 
   if (!game) {
@@ -54,6 +56,23 @@ async function resolveGameForOrg(gameId: string) {
   }
 
   return { game, org, member }
+}
+
+async function notifyConfigChanged(game: { robloxUniverseId: string | null; robloxConnection: { userId: string; scopes: string[] } | null }, memberId: string) {
+  if (!game.robloxUniverseId || !game.robloxConnection) return
+  if (!game.robloxConnection.scopes.includes("universe-messaging-service:publish")) return
+
+  try {
+    const tokenResult = await ensureRobloxAccessToken(game.robloxConnection.userId)
+    await publishMessagingServiceMessage(
+      tokenResult.accessToken,
+      game.robloxUniverseId,
+      "RblxDash_LiveConfig",
+      JSON.stringify({ action: "refresh" })
+    )
+  } catch {
+    // fire-and-forget, don't block the response
+  }
 }
 
 function validateValue(value: string, valueType: string): string | null {
@@ -168,6 +187,7 @@ export async function POST(
       }),
     ])
 
+    notifyConfigChanged(result.game, result.member.userId)
     return NextResponse.json({ data: config }, { status: 201 })
   } catch (err) {
     console.error("[POST /api/games/[gameId]/config]", err)
@@ -240,6 +260,7 @@ export async function PUT(
       }),
     ])
 
+    notifyConfigChanged(result.game, result.member.userId)
     return NextResponse.json({ data: config })
   } catch (err) {
     console.error("[PUT /api/games/[gameId]/config]", err)
@@ -290,6 +311,7 @@ export async function DELETE(
       }),
     ])
 
+    notifyConfigChanged(result.game, result.member.userId)
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error("[DELETE /api/games/[gameId]/config]", err)

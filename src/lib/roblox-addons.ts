@@ -90,6 +90,7 @@ export function buildLiveConfigAddon(params: {
 --   LiveConfig.refresh()
 
 local HttpService = game:GetService("HttpService")
+local MessagingService = game:GetService("MessagingService")
 
 local CONFIG_URL = "${escapedConfigUrl}"
 local WEBHOOK_SECRET = "${escapedWebhookSecret}"
@@ -189,7 +190,24 @@ task.spawn(function()
     fetchConfig()
 end)
 
--- Polling loop
+-- Instant updates via MessagingService
+task.spawn(function()
+    local ok, err = pcall(function()
+        MessagingService:SubscribeAsync("RblxDash_LiveConfig", function(message)
+            task.defer(function()
+                fetchConfig()
+            end)
+        end)
+    end)
+
+    if ok then
+        warn("[RblxDash LiveConfig] Subscribed to MessagingService for instant updates")
+    else
+        warn("[RblxDash LiveConfig] MessagingService subscribe failed: " .. tostring(err))
+    end
+end)
+
+-- Polling fallback (safety net)
 task.spawn(function()
     while true do
         task.wait(POLL_SECONDS)
