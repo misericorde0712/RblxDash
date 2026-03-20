@@ -59,20 +59,30 @@ async function resolveGameForOrg(gameId: string) {
 }
 
 async function notifyConfigChanged(game: { robloxUniverseId: string | null; robloxConnection: { userId: string; scopes: string[] } | null }, memberId: string) {
-  if (!game.robloxUniverseId || !game.robloxConnection) return
-  if (!game.robloxConnection.scopes.includes("universe-messaging-service:publish")) return
+  if (!game.robloxUniverseId || !game.robloxConnection) {
+    console.log("[LiveConfig] Skip notify: no universeId or connection", { universeId: game.robloxUniverseId, hasConnection: !!game.robloxConnection })
+    return
+  }
+  if (!game.robloxConnection.scopes.includes("universe-messaging-service:publish")) {
+    console.log("[LiveConfig] Skip notify: missing messaging scope", { scopes: game.robloxConnection.scopes })
+    return
+  }
 
   try {
     const tokenResult = await ensureRobloxAccessToken(game.robloxConnection.userId)
-    if (!tokenResult) return
+    if (!tokenResult) {
+      console.log("[LiveConfig] Skip notify: no access token")
+      return
+    }
     await publishMessagingServiceMessage(
       tokenResult.accessToken,
       game.robloxUniverseId,
       "RblxDash_LiveConfig",
       JSON.stringify({ action: "refresh" })
     )
-  } catch {
-    // fire-and-forget, don't block the response
+    console.log("[LiveConfig] MessagingService published to universe", game.robloxUniverseId)
+  } catch (err) {
+    console.error("[LiveConfig] MessagingService publish failed:", err)
   }
 }
 
