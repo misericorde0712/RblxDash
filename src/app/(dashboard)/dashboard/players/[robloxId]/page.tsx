@@ -424,7 +424,7 @@ export default async function PlayerDetailsPage({
                 No webhook events recorded for this player yet.
               </p>
             ) : (
-              <div className="space-y-3">
+              <div className="rd-scrollable-list space-y-3">
                 {recentLogs.map((log) => {
                   const eventDisplay = getGameLogEventDisplay(log.event, log.payload)
                   const badgeStyle = getEventBadgeStyle(eventDisplay.key)

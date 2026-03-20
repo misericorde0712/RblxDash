@@ -372,7 +372,7 @@ export default function PlayerDetailPanel({
           </button>
         </form>
 
-        <div className="mt-5 space-y-3">
+        <div className="mt-5 rd-scrollable-list space-y-3">
           {noteItems.length === 0 ? (
             <p className="text-sm" style={{ color: "#666666" }}>
               No internal notes for this player yet.
@@ -399,7 +399,7 @@ export default function PlayerDetailPanel({
       {/* Sanction history */}
       <section className="rd-card p-5">
         <h2 className="text-base font-semibold text-white">Sanction history</h2>
-        <div className="mt-4 space-y-3">
+        <div className="mt-4 rd-scrollable-list space-y-3">
           {sanctionItems.length === 0 ? (
             <p className="text-sm" style={{ color: "#666666" }}>
               No moderation actions recorded for this player yet.
