@@ -179,12 +179,14 @@ export function buildRobloxServerScript(params: {
     webhookUrl: string
     webhookSecret: string
     moderationUrl: string
+    configUrl: string
 }) {
     const gameLabel = params.gameName.replace(/[\r\n]+/g, " ")
     const escapedGameName = escapeLuaString(gameLabel)
     const escapedWebhookUrl = escapeLuaString(params.webhookUrl)
     const escapedWebhookSecret = escapeLuaString(params.webhookSecret)
     const escapedModerationUrl = escapeLuaString(params.moderationUrl)
+    const escapedConfigUrl = escapeLuaString(params.configUrl)
 
     return `-- RblxDash integration bootstrap for ${gameLabel}
 -- Place this Script inside ServerScriptService.
@@ -232,6 +234,7 @@ export function buildRobloxServerScript(params: {
 
 local HttpService = game:GetService("HttpService")
 local MessagingService = game:GetService("MessagingService")
+local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
@@ -239,6 +242,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local WEBHOOK_URL = "${escapedWebhookUrl}"
 local WEBHOOK_SECRET = "${escapedWebhookSecret}"
 local MODERATION_URL = "${escapedModerationUrl}"
+local CONFIG_URL = "${escapedConfigUrl}"
 local API_FOLDER_NAME = "RblxDash"
 local LEGACY_BRIDGE_NAME = "RblxDashEvent"
 local TRACK_EVENT_FUNCTION_NAME = "TrackEvent"
@@ -531,6 +535,68 @@ local function buildModerationMessage(sanction)
     return prefix
 end
 
+local function writeDataStoreBan(robloxId, data)
+    pcall(function()
+        local banStore = DataStoreService:GetDataStore("RblxDash_Bans")
+        banStore:SetAsync(tostring(robloxId), {
+            banned = true,
+            reason = data.reason or "Banned",
+            moderator = data.moderator or "System",
+            bannedAt = os.date("!%Y-%m-%dT%H:%M:%SZ"),
+            expiresAt = data.expiresAt,
+        })
+        log("DataStore ban written for " .. tostring(robloxId))
+    end)
+end
+
+local function removeDataStoreBan(robloxId)
+    pcall(function()
+        local banStore = DataStoreService:GetDataStore("RblxDash_Bans")
+        banStore:RemoveAsync(tostring(robloxId))
+        log("DataStore ban removed for " .. tostring(robloxId))
+    end)
+end
+
+local function checkDataStoreBan(player)
+    local success, result = pcall(function()
+        local banStore = DataStoreService:GetDataStore("RblxDash_Bans")
+        return banStore:GetAsync(tostring(player.UserId))
+    end)
+
+    if not success or type(result) ~= "table" then
+        return nil
+    end
+
+    if not result.banned then
+        return nil
+    end
+
+    if type(result.expiresAt) == "string" and result.expiresAt ~= "" then
+        local now = os.time()
+        local year, month, day, hour, min, sec = result.expiresAt:match("(%d+)-(%d+)-(%d+)T(%d+):(%d+):(%d+)")
+        if year then
+            local expiryTime = os.time({
+                year = tonumber(year),
+                month = tonumber(month),
+                day = tonumber(day),
+                hour = tonumber(hour),
+                min = tonumber(min),
+                sec = tonumber(sec),
+            })
+            if now >= expiryTime then
+                return nil
+            end
+        end
+    end
+
+    return {
+        type = "BAN",
+        reason = result.reason or "Banned",
+        moderator = result.moderator or "System",
+        id = "datastore",
+    }
+end
+
 local function applyModeration(player)
     if typeof(player) ~= "Instance" or not player:IsA("Player") then
         return
@@ -550,6 +616,15 @@ local function applyModeration(player)
         return
     end
 
+    -- Persist ban/timeout to DataStore
+    if sanction.type == "BAN" or sanction.type == "TIMEOUT" then
+        writeDataStoreBan(tostring(player.UserId), {
+            reason = sanction.reason,
+            moderator = sanction.moderator,
+            expiresAt = sanction.expiresAt,
+        })
+    end
+
     local kickSuccess, kickError = pcall(function()
         player:Kick(buildModerationMessage(sanction))
     end)
@@ -563,6 +638,113 @@ local function applyModeration(player)
         error = tostring(kickError),
     })
     log("Unable to apply moderation action: " .. tostring(kickError))
+end
+
+local function applyInstantModeration(data)
+    if type(data) ~= "table" or type(data.robloxId) ~= "string" then
+        return
+    end
+
+    local targetUserId = tonumber(data.robloxId)
+    if not targetUserId then
+        return
+    end
+
+    if data.action == "BAN" or data.action == "TIMEOUT" then
+        writeDataStoreBan(data.robloxId, data)
+    elseif data.action == "UNBAN" then
+        removeDataStoreBan(data.robloxId)
+        log("Unban received for " .. data.robloxId .. " via MessagingService")
+        return
+    end
+
+    local player = nil
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p.UserId == targetUserId then
+            player = p
+            break
+        end
+    end
+
+    if not player then
+        return
+    end
+
+    local sanction = {
+        id = data.sanctionId,
+        type = data.action,
+        reason = data.reason,
+        expiresAt = data.expiresAt,
+    }
+
+    local kickSuccess, kickError = pcall(function()
+        player:Kick(buildModerationMessage(sanction))
+    end)
+
+    if kickSuccess then
+        sendModerationAck("moderation_applied", player, sanction)
+    else
+        sendModerationAck("moderation_failed", player, sanction, {
+            error = tostring(kickError),
+        })
+    end
+end
+
+-- Live Config
+local liveConfigData = {}
+local liveConfigVersion = nil
+local liveConfigChangedEvent = Instance.new("BindableEvent")
+
+local function fetchLiveConfig()
+    if CONFIG_URL == "" then
+        return false
+    end
+
+    local headers = {
+        ["x-webhook-secret"] = WEBHOOK_SECRET,
+    }
+
+    if liveConfigVersion then
+        headers["If-None-Match"] = '"v' .. tostring(liveConfigVersion) .. '"'
+    end
+
+    local success, response = pcall(function()
+        return HttpService:RequestAsync({
+            Url = CONFIG_URL,
+            Method = "GET",
+            Headers = headers,
+        })
+    end)
+
+    if not success then
+        log("LiveConfig fetch failed: " .. tostring(response))
+        return false
+    end
+
+    if response.StatusCode == 304 then
+        return false
+    end
+
+    if not response.Success then
+        log("LiveConfig fetch rejected: " .. tostring(response.StatusCode))
+        return false
+    end
+
+    local decodeOk, decoded = pcall(function()
+        return HttpService:JSONDecode(response.Body)
+    end)
+
+    if not decodeOk or type(decoded) ~= "table" then
+        return false
+    end
+
+    local oldConfig = liveConfigData
+    liveConfigData = decoded.config or {}
+    liveConfigVersion = decoded.version
+
+    log("LiveConfig updated to v" .. tostring(decoded.version))
+    liveConfigChangedEvent:Fire(liveConfigData, oldConfig)
+    return true
 end
 
 local bridge = ServerStorage:FindFirstChild(LEGACY_BRIDGE_NAME)
@@ -600,10 +782,45 @@ ensureBindableFunction(apiFolder, TRACK_ERROR_FUNCTION_NAME, function(player, er
     return trackError(player, errorMessage, payload)
 end)
 
+ensureBindableFunction(apiFolder, "GetConfig", function(key, defaultValue)
+    local value = liveConfigData[key]
+    if value == nil then
+        return defaultValue
+    end
+    return value
+end)
+
+ensureBindableFunction(apiFolder, "GetAllConfig", function()
+    local copy = {}
+    for k, v in pairs(liveConfigData) do
+        copy[k] = v
+    end
+    return copy
+end)
+
+local configChangedBridge = Instance.new("BindableEvent")
+configChangedBridge.Name = "ConfigChanged"
+configChangedBridge.Parent = apiFolder
+liveConfigChangedEvent.Event:Connect(function(newConfig, oldConfig)
+    configChangedBridge:Fire(newConfig, oldConfig)
+end)
 
 sendEvent("server_started", buildServerPayload(), nil)
 
 Players.PlayerAdded:Connect(function(player)
+    -- Check DataStore ban instantly (no HTTP needed)
+    local datastoreBan = checkDataStoreBan(player)
+    if datastoreBan then
+        log("Player " .. tostring(player.UserId) .. " banned via DataStore")
+        local kickOk = pcall(function()
+            player:Kick(buildModerationMessage(datastoreBan))
+        end)
+        if kickOk then
+            sendModerationAck("moderation_applied", player, datastoreBan)
+        end
+        return
+    end
+
     sendEvent("player_join", buildServerPayload(), player)
     sendEvent("player_session_started", buildServerPayload(), player)
     task.defer(function()
@@ -632,6 +849,46 @@ task.spawn(function()
                 applyModeration(player)
             end)
         end
+    end
+end)
+
+-- MessagingService: instant moderation (bans, kicks, unbans)
+pcall(function()
+    MessagingService:SubscribeAsync("RblxDash_Moderation", function(message)
+        if type(message) ~= "table" or type(message.Data) ~= "string" then
+            return
+        end
+        local decodeOk, data = pcall(function()
+            return HttpService:JSONDecode(message.Data)
+        end)
+        if decodeOk and type(data) == "table" then
+            task.defer(function()
+                applyInstantModeration(data)
+            end)
+        end
+    end)
+    log("Subscribed to MessagingService topic: RblxDash_Moderation")
+end)
+
+-- MessagingService: instant Live Config updates
+pcall(function()
+    MessagingService:SubscribeAsync("RblxDash_LiveConfig", function()
+        task.defer(function()
+            fetchLiveConfig()
+        end)
+    end)
+    log("Subscribed to MessagingService topic: RblxDash_LiveConfig")
+end)
+
+-- Live Config: initial fetch + polling fallback
+task.spawn(function()
+    fetchLiveConfig()
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(60)
+        fetchLiveConfig()
     end
 end)
 
