@@ -240,7 +240,7 @@ export async function publishMessagingServiceMessage(
   topic: string,
   message: string
 ): Promise<void> {
-  const url = `${OPEN_CLOUD_BASE}/cloud/v2/universes/${universeId}/topics/${encodeURIComponent(topic)}:publish`
+  const url = `${OPEN_CLOUD_BASE}/messaging-service/v1/universes/${universeId}/topics/${encodeURIComponent(topic)}`
 
   const res = await fetch(url, {
     method: "POST",
