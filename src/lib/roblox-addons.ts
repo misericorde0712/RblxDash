@@ -256,6 +256,7 @@ export function buildLiveEventsAddon(params: {
 --   LiveEvents.refresh()
 
 local HttpService = game:GetService("HttpService")
+local MessagingService = game:GetService("MessagingService")
 
 local EVENTS_URL = "${escapedEventsUrl}"
 local WEBHOOK_SECRET = "${escapedWebhookSecret}"
@@ -356,7 +357,24 @@ task.spawn(function()
     fetchEvents()
 end)
 
--- Polling loop
+-- Instant updates via MessagingService
+task.spawn(function()
+    local ok, err = pcall(function()
+        MessagingService:SubscribeAsync("RblxDash_LiveEvents", function(_message)
+            task.defer(function()
+                fetchEvents()
+            end)
+        end)
+    end)
+
+    if ok then
+        warn("[RblxDash LiveEvents] Subscribed to MessagingService for instant updates")
+    else
+        warn("[RblxDash LiveEvents] MessagingService subscribe failed: " .. tostring(err))
+    end
+end)
+
+-- Polling fallback (safety net)
 task.spawn(function()
     while true do
         task.wait(POLL_SECONDS)

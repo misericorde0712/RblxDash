@@ -21,7 +21,7 @@ export default async function GameEventsPage({
       webhookSecret: true,
       eventVersion: true,
       liveEvents: {
-        orderBy: [{ startsAt: "desc" }],
+        orderBy: [{ updatedAt: "desc" }],
       },
     },
   })

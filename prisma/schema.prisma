@@ -314,24 +314,41 @@ model LiveConfig {
 
 // ─── Live Events ─────────────────────────────────────────────────────────
 
+enum RecurrenceType {
+  ONCE
+  ALWAYS
+  HOURLY
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
 model LiveEvent {
   id          String    @id @default(cuid())
   name        String
   slug        String
   description String?
   eventData   String    @default("{}") // JSON payload accessible in-game
-  startsAt    DateTime
+  startsAt    DateTime?
   endsAt      DateTime?
   active      Boolean   @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   updatedBy   String?
 
+  recurrenceType      RecurrenceType @default(ONCE)
+  recurrenceInterval  Int            @default(1)
+  recurrenceDaysOfWeek Int[]
+  recurrenceDayOfMonth Int?
+  duration            Int?           // duration of each occurrence in minutes
+  recurrenceTimeOfDay String?        // format HH:MM
+  timezone            String         @default("UTC")
+
   gameId String
   game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
 
   @@unique([gameId, slug])
-  @@index([gameId, active, startsAt])
+  @@index([gameId, active, recurrenceType])
 }
 
 // ─── Billing ─────────────────────────────────────────────────────────────────

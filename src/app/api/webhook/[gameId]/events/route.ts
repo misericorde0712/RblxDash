@@ -1,15 +1,18 @@
 /**
  * GET /api/webhook/[gameId]/events
  *
- * Endpoint pour le Luau SDK — retourne les événements actifs d'un jeu.
- * Auth: x-webhook-secret header (même que les webhooks).
+ * Endpoint pour le Luau SDK — retourne les evenements actifs d'un jeu.
+ * Auth: x-webhook-secret header (meme que les webhooks).
  *
  * Supporte ETag via le champ game.eventVersion pour du polling efficace.
- * Si le client envoie If-None-Match avec la même version → 304 Not Modified.
+ * Si le client envoie If-None-Match avec la meme version → 304 Not Modified.
+ *
+ * Recurrence: fetches all active events, then filters using isEventCurrentlyActive.
  */
 
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { isEventCurrentlyActive } from "@/lib/recurrence"
 
 export async function GET(
   req: NextRequest,
@@ -49,15 +52,15 @@ export async function GET(
 
     const now = new Date()
 
+    // Fetch all active events with global window pre-filter
     const events = await prisma.liveEvent.findMany({
       where: {
         gameId,
         active: true,
-        startsAt: { lte: now },
-        OR: [
-          { endsAt: null },
-          { endsAt: { gt: now } },
-        ],
+        OR: [{ startsAt: null }, { startsAt: { lte: now } }],
+        AND: {
+          OR: [{ endsAt: null }, { endsAt: { gt: now } }],
+        },
       },
       select: {
         slug: true,
@@ -66,28 +69,44 @@ export async function GET(
         eventData: true,
         startsAt: true,
         endsAt: true,
+        active: true,
+        recurrenceType: true,
+        recurrenceInterval: true,
+        recurrenceDaysOfWeek: true,
+        recurrenceDayOfMonth: true,
+        duration: true,
+        recurrenceTimeOfDay: true,
+        timezone: true,
       },
-      orderBy: { startsAt: "asc" },
+      orderBy: { updatedAt: "desc" },
     })
 
-    // Transform events for Luau consumption
-    const formattedEvents = events.map((event) => {
-      let data: unknown = {}
-      try {
-        data = JSON.parse(event.eventData)
-      } catch {
-        // Keep as empty object if parsing fails
-      }
+    // Filter by recurrence logic
+    const formattedEvents = events
+      .map((event) => {
+        const result = isEventCurrentlyActive(event, now)
+        if (!result.isActive) return null
 
-      return {
-        slug: event.slug,
-        name: event.name,
-        description: event.description,
-        data,
-        startsAt: event.startsAt.toISOString(),
-        endsAt: event.endsAt?.toISOString() ?? null,
-      }
-    })
+        let data: unknown = {}
+        try {
+          data = JSON.parse(event.eventData)
+        } catch {
+          // Keep as empty object if parsing fails
+        }
+
+        return {
+          slug: event.slug,
+          name: event.name,
+          description: event.description,
+          data,
+          startsAt: event.startsAt?.toISOString() ?? null,
+          endsAt: event.endsAt?.toISOString() ?? null,
+          recurrenceType: event.recurrenceType,
+          occurrenceStart: result.occurrenceStart?.toISOString() ?? null,
+          occurrenceEnd: result.occurrenceEnd?.toISOString() ?? null,
+        }
+      })
+      .filter(Boolean)
 
     return NextResponse.json(
       {

@@ -11,20 +11,69 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { requireCurrentOrg } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { ensureRobloxAccessToken } from "@/lib/roblox-connection"
+import { publishMessagingServiceMessage } from "@/lib/roblox-open-cloud"
 
-const CreateEventSchema = z.object({
-  name: z.string().min(1).max(128),
-  slug: z
-    .string()
-    .min(1)
-    .max(128)
-    .regex(/^[a-z0-9][a-z0-9-]*$/, "Slug must be lowercase alphanumeric with hyphens"),
-  description: z.string().max(500).optional(),
-  eventData: z.string().default("{}"),
-  startsAt: z.string().datetime(),
-  endsAt: z.string().datetime().optional().nullable(),
-  active: z.boolean().default(true),
-})
+const RecurrenceTypeEnum = z.enum(["ONCE", "ALWAYS", "HOURLY", "DAILY", "WEEKLY", "MONTHLY"])
+
+const CreateEventSchema = z
+  .object({
+    name: z.string().min(1).max(128),
+    slug: z
+      .string()
+      .min(1)
+      .max(128)
+      .regex(/^[a-z0-9][a-z0-9-]*$/, "Slug must be lowercase alphanumeric with hyphens"),
+    description: z.string().max(500).optional(),
+    eventData: z.string().default("{}"),
+    startsAt: z.string().datetime().optional().nullable(),
+    endsAt: z.string().datetime().optional().nullable(),
+    active: z.boolean().default(true),
+    recurrenceType: RecurrenceTypeEnum.default("ONCE"),
+    recurrenceInterval: z.number().int().min(1).default(1),
+    recurrenceDaysOfWeek: z.array(z.number().int().min(0).max(6)).default([]),
+    recurrenceDayOfMonth: z.number().int().min(1).max(31).optional().nullable(),
+    duration: z.number().int().min(1).optional().nullable(),
+    recurrenceTimeOfDay: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/, "Must be HH:MM format")
+      .optional()
+      .nullable(),
+    timezone: z.string().default("UTC"),
+  })
+  .superRefine((data, ctx) => {
+    if (data.recurrenceType === "ONCE" && !data.startsAt) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "startsAt is required for ONCE events",
+        path: ["startsAt"],
+      })
+    }
+    if (data.recurrenceType === "WEEKLY" && data.recurrenceDaysOfWeek.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "recurrenceDaysOfWeek must not be empty for WEEKLY events",
+        path: ["recurrenceDaysOfWeek"],
+      })
+    }
+    if (data.recurrenceType === "MONTHLY" && data.recurrenceDayOfMonth == null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "recurrenceDayOfMonth is required for MONTHLY events",
+        path: ["recurrenceDayOfMonth"],
+      })
+    }
+    if (
+      ["HOURLY", "DAILY", "WEEKLY", "MONTHLY"].includes(data.recurrenceType) &&
+      data.duration == null
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "duration is required for recurring events",
+        path: ["duration"],
+      })
+    }
+  })
 
 const UpdateEventSchema = z.object({
   id: z.string().min(1),
@@ -37,9 +86,20 @@ const UpdateEventSchema = z.object({
     .optional(),
   description: z.string().max(500).optional().nullable(),
   eventData: z.string().optional(),
-  startsAt: z.string().datetime().optional(),
+  startsAt: z.string().datetime().optional().nullable(),
   endsAt: z.string().datetime().optional().nullable(),
   active: z.boolean().optional(),
+  recurrenceType: RecurrenceTypeEnum.optional(),
+  recurrenceInterval: z.number().int().min(1).optional(),
+  recurrenceDaysOfWeek: z.array(z.number().int().min(0).max(6)).optional(),
+  recurrenceDayOfMonth: z.number().int().min(1).max(31).optional().nullable(),
+  duration: z.number().int().min(1).optional().nullable(),
+  recurrenceTimeOfDay: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/, "Must be HH:MM format")
+    .optional()
+    .nullable(),
+  timezone: z.string().optional(),
 })
 
 async function resolveGameForOrg(gameId: string) {
@@ -54,7 +114,12 @@ async function resolveGameForOrg(gameId: string) {
 
   const game = await prisma.game.findFirst({
     where: { id: gameId, orgId: org.id },
-    select: { id: true, orgId: true },
+    select: {
+      id: true,
+      orgId: true,
+      robloxUniverseId: true,
+      robloxConnection: { select: { userId: true, scopes: true } },
+    },
   })
 
   if (!game) {
@@ -62,6 +127,30 @@ async function resolveGameForOrg(gameId: string) {
   }
 
   return { game, org, member }
+}
+
+async function notifyEventsChanged(
+  game: {
+    robloxUniverseId: string | null
+    robloxConnection: { userId: string; scopes: string[] } | null
+  },
+) {
+  if (!game.robloxUniverseId || !game.robloxConnection) return
+  if (!game.robloxConnection.scopes.includes("universe-messaging-service:publish")) return
+
+  try {
+    const tokenResult = await ensureRobloxAccessToken(game.robloxConnection.userId)
+    if (!tokenResult) return
+    await publishMessagingServiceMessage(
+      tokenResult.accessToken,
+      game.robloxUniverseId,
+      "RblxDash_LiveEvents",
+      JSON.stringify({ action: "refresh" })
+    )
+    console.log("[LiveEvents] MessagingService published to universe", game.robloxUniverseId)
+  } catch (err) {
+    console.error("[LiveEvents] MessagingService publish failed:", err)
+  }
 }
 
 export async function GET(
@@ -75,7 +164,7 @@ export async function GET(
 
     const events = await prisma.liveEvent.findMany({
       where: { gameId },
-      orderBy: [{ startsAt: "desc" }],
+      orderBy: [{ updatedAt: "desc" }],
     })
 
     const game = await prisma.game.findUnique({
@@ -112,7 +201,11 @@ export async function POST(
       )
     }
 
-    const { name, slug, description, eventData, startsAt, endsAt, active } = parsed.data
+    const {
+      name, slug, description, eventData, startsAt, endsAt, active,
+      recurrenceType, recurrenceInterval, recurrenceDaysOfWeek,
+      recurrenceDayOfMonth, duration, recurrenceTimeOfDay, timezone,
+    } = parsed.data
 
     // Validate eventData is valid JSON
     try {
@@ -141,9 +234,16 @@ export async function POST(
           slug,
           description,
           eventData,
-          startsAt: new Date(startsAt),
+          startsAt: startsAt ? new Date(startsAt) : null,
           endsAt: endsAt ? new Date(endsAt) : null,
           active,
+          recurrenceType,
+          recurrenceInterval,
+          recurrenceDaysOfWeek,
+          recurrenceDayOfMonth,
+          duration,
+          recurrenceTimeOfDay,
+          timezone,
           updatedBy: result.member.userId,
         },
       }),
@@ -156,13 +256,14 @@ export async function POST(
           event: "event.created",
           targetType: "LiveEvent",
           targetId: slug,
-          payload: { name, slug, startsAt, endsAt, active },
+          payload: { name, slug, startsAt, endsAt, active, recurrenceType },
           actorUserId: result.member.userId,
           orgId: result.org.id,
         },
       }),
     ])
 
+    notifyEventsChanged(result.game)
     return NextResponse.json({ data: event }, { status: 201 })
   } catch (err) {
     console.error("[POST /api/games/[gameId]/events]", err)
@@ -189,7 +290,11 @@ export async function PUT(
       )
     }
 
-    const { id, name, slug, description, eventData, startsAt, endsAt, active } = parsed.data
+    const {
+      id, name, slug, description, eventData, startsAt, endsAt, active,
+      recurrenceType, recurrenceInterval, recurrenceDaysOfWeek,
+      recurrenceDayOfMonth, duration, recurrenceTimeOfDay, timezone,
+    } = parsed.data
 
     const existing = await prisma.liveEvent.findFirst({
       where: { id, gameId },
@@ -225,9 +330,16 @@ export async function PUT(
     if (slug !== undefined) updateData.slug = slug
     if (description !== undefined) updateData.description = description
     if (eventData !== undefined) updateData.eventData = eventData
-    if (startsAt !== undefined) updateData.startsAt = new Date(startsAt)
+    if (startsAt !== undefined) updateData.startsAt = startsAt ? new Date(startsAt) : null
     if (endsAt !== undefined) updateData.endsAt = endsAt ? new Date(endsAt) : null
     if (active !== undefined) updateData.active = active
+    if (recurrenceType !== undefined) updateData.recurrenceType = recurrenceType
+    if (recurrenceInterval !== undefined) updateData.recurrenceInterval = recurrenceInterval
+    if (recurrenceDaysOfWeek !== undefined) updateData.recurrenceDaysOfWeek = recurrenceDaysOfWeek
+    if (recurrenceDayOfMonth !== undefined) updateData.recurrenceDayOfMonth = recurrenceDayOfMonth
+    if (duration !== undefined) updateData.duration = duration
+    if (recurrenceTimeOfDay !== undefined) updateData.recurrenceTimeOfDay = recurrenceTimeOfDay
+    if (timezone !== undefined) updateData.timezone = timezone
 
     const [event] = await prisma.$transaction([
       prisma.liveEvent.update({
@@ -250,6 +362,7 @@ export async function PUT(
       }),
     ])
 
+    notifyEventsChanged(result.game)
     return NextResponse.json({ data: event })
   } catch (err) {
     console.error("[PUT /api/games/[gameId]/events]", err)
@@ -300,6 +413,7 @@ export async function DELETE(
       }),
     ])
 
+    notifyEventsChanged(result.game)
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error("[DELETE /api/games/[gameId]/events]", err)

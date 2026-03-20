@@ -2,18 +2,27 @@
 
 import { useState, useCallback } from "react"
 
+type RecurrenceType = "ONCE" | "ALWAYS" | "HOURLY" | "DAILY" | "WEEKLY" | "MONTHLY"
+
 type EventEntry = {
   id: string
   name: string
   slug: string
   description: string | null
   eventData: string
-  startsAt: Date | string
+  startsAt: Date | string | null
   endsAt: Date | string | null
   active: boolean
   createdAt: Date | string
   updatedAt: Date | string
   updatedBy: string | null
+  recurrenceType: RecurrenceType
+  recurrenceInterval: number
+  recurrenceDaysOfWeek: number[]
+  recurrenceDayOfMonth: number | null
+  duration: number | null
+  recurrenceTimeOfDay: string | null
+  timezone: string
 }
 
 type NewEvent = {
@@ -24,6 +33,13 @@ type NewEvent = {
   startsAt: string
   endsAt: string
   active: boolean
+  recurrenceType: RecurrenceType
+  recurrenceInterval: number
+  recurrenceDaysOfWeek: number[]
+  recurrenceDayOfMonth: number | null
+  duration: number | null
+  recurrenceTimeOfDay: string
+  timezone: string
 }
 
 const EMPTY_NEW: NewEvent = {
@@ -34,7 +50,25 @@ const EMPTY_NEW: NewEvent = {
   startsAt: "",
   endsAt: "",
   active: true,
+  recurrenceType: "ONCE",
+  recurrenceInterval: 1,
+  recurrenceDaysOfWeek: [],
+  recurrenceDayOfMonth: null,
+  duration: null,
+  recurrenceTimeOfDay: "",
+  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 }
+
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+
+const RECURRENCE_OPTIONS: { value: RecurrenceType; label: string }[] = [
+  { value: "ONCE", label: "Once" },
+  { value: "ALWAYS", label: "Always On" },
+  { value: "HOURLY", label: "Hourly" },
+  { value: "DAILY", label: "Daily" },
+  { value: "WEEKLY", label: "Weekly" },
+  { value: "MONTHLY", label: "Monthly" },
+]
 
 function toLocalDatetime(d: Date | string | null): string {
   if (!d) return ""
@@ -56,21 +90,461 @@ function formatDate(d: Date | string | null): string {
   })
 }
 
-function getEventStatus(event: EventEntry): { label: string; color: string; bg: string } {
-  const now = new Date()
-  const start = new Date(event.startsAt)
-  const end = event.endsAt ? new Date(event.endsAt) : null
+function formatRecurrence(event: EventEntry): string {
+  switch (event.recurrenceType) {
+    case "ONCE":
+      return formatDate(event.startsAt) + (event.endsAt ? ` → ${formatDate(event.endsAt)}` : " → No end date")
+    case "ALWAYS":
+      return "Always active" + (event.startsAt ? ` (from ${formatDate(event.startsAt)})` : "")
+    case "HOURLY":
+      return `Every ${event.recurrenceInterval > 1 ? event.recurrenceInterval + " " : ""}hour${event.recurrenceInterval > 1 ? "s" : ""} for ${event.duration}min`
+    case "DAILY":
+      return `Every ${event.recurrenceInterval > 1 ? event.recurrenceInterval + " " : ""}day${event.recurrenceInterval > 1 ? "s" : ""} at ${event.recurrenceTimeOfDay ?? "?"} for ${event.duration}min`
+    case "WEEKLY": {
+      const days = event.recurrenceDaysOfWeek.map((d) => DAY_LABELS[d]).join(", ")
+      return `${days} at ${event.recurrenceTimeOfDay ?? "?"} for ${event.duration}min`
+    }
+    case "MONTHLY":
+      return `Day ${event.recurrenceDayOfMonth} of each month at ${event.recurrenceTimeOfDay ?? "?"} for ${event.duration}min`
+    default:
+      return "—"
+  }
+}
 
+function getEventStatus(event: EventEntry): { label: string; color: string; bg: string } {
   if (!event.active) {
     return { label: "Disabled", color: "#666666", bg: "rgba(102,102,102,0.1)" }
   }
-  if (start > now) {
+  if (event.recurrenceType === "ALWAYS") {
+    return { label: "Always On", color: "#a78bfa", bg: "rgba(167,139,250,0.1)" }
+  }
+  if (event.recurrenceType !== "ONCE") {
+    return { label: "Recurring", color: "#38bdf8", bg: "rgba(56,189,248,0.1)" }
+  }
+
+  const now = new Date()
+  const start = event.startsAt ? new Date(event.startsAt) : null
+  const end = event.endsAt ? new Date(event.endsAt) : null
+
+  if (start && start > now) {
     return { label: "Scheduled", color: "#7dd3fc", bg: "rgba(125,211,252,0.1)" }
   }
   if (end && end < now) {
     return { label: "Ended", color: "#888888", bg: "rgba(136,136,136,0.1)" }
   }
   return { label: "Active", color: "#4ade80", bg: "rgba(74,222,128,0.1)" }
+}
+
+function RecurrenceFields({
+  data,
+  onChange,
+}: {
+  data: NewEvent
+  onChange: (patch: Partial<NewEvent>) => void
+}) {
+  const rt = data.recurrenceType
+
+  return (
+    <>
+      {/* Recurrence type */}
+      <div>
+        <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
+          Recurrence
+        </label>
+        <select
+          value={rt}
+          onChange={(e) => onChange({ recurrenceType: e.target.value as RecurrenceType })}
+          className="rd-input w-full"
+        >
+          {RECURRENCE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Conditional fields based on recurrence type */}
+      {rt === "ONCE" && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
+              Starts at *
+            </label>
+            <input
+              type="datetime-local"
+              value={data.startsAt}
+              onChange={(e) => onChange({ startsAt: e.target.value })}
+              className="rd-input w-full"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
+              Ends at (optional)
+            </label>
+            <input
+              type="datetime-local"
+              value={data.endsAt}
+              onChange={(e) => onChange({ endsAt: e.target.value })}
+              className="rd-input w-full"
+            />
+          </div>
+        </div>
+      )}
+
+      {rt === "ALWAYS" && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
+              Global start (optional)
+            </label>
+            <input
+              type="datetime-local"
+              value={data.startsAt}
+              onChange={(e) => onChange({ startsAt: e.target.value })}
+              className="rd-input w-full"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
+              Global end (optional)
+            </label>
+            <input
+              type="datetime-local"
+              value={data.endsAt}
+              onChange={(e) => onChange({ endsAt: e.target.value })}
+              className="rd-input w-full"
+            />
+          </div>
+        </div>
+      )}
+
+      {rt === "HOURLY" && (
+        <>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
+                Every N hours *
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={data.recurrenceInterval}
+                onChange={(e) => onChange({ recurrenceInterval: parseInt(e.target.value) || 1 })}
+                className="rd-input w-full"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
+                Duration (minutes) *
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={data.duration ?? ""}
+                onChange={(e) => onChange({ duration: parseInt(e.target.value) || null })}
+                className="rd-input w-full"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
+                Timezone
+              </label>
+              <input
+                type="text"
+                value={data.timezone}
+                onChange={(e) => onChange({ timezone: e.target.value })}
+                className="rd-input w-full text-xs"
+              />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
+                Global start (optional)
+              </label>
+              <input
+                type="datetime-local"
+                value={data.startsAt}
+                onChange={(e) => onChange({ startsAt: e.target.value })}
+                className="rd-input w-full"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
+                Global end (optional)
+              </label>
+              <input
+                type="datetime-local"
+                value={data.endsAt}
+                onChange={(e) => onChange({ endsAt: e.target.value })}
+                className="rd-input w-full"
+              />
+            </div>
+          </div>
+        </>
+      )}
+
+      {rt === "DAILY" && (
+        <>
+          <div className="grid gap-4 sm:grid-cols-4">
+            <div>
+              <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
+                Every N days
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={data.recurrenceInterval}
+                onChange={(e) => onChange({ recurrenceInterval: parseInt(e.target.value) || 1 })}
+                className="rd-input w-full"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
+                Time of day *
+              </label>
+              <input
+                type="time"
+                value={data.recurrenceTimeOfDay}
+                onChange={(e) => onChange({ recurrenceTimeOfDay: e.target.value })}
+                className="rd-input w-full"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
+                Duration (min) *
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={data.duration ?? ""}
+                onChange={(e) => onChange({ duration: parseInt(e.target.value) || null })}
+                className="rd-input w-full"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
+                Timezone
+              </label>
+              <input
+                type="text"
+                value={data.timezone}
+                onChange={(e) => onChange({ timezone: e.target.value })}
+                className="rd-input w-full text-xs"
+              />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
+                Global start (optional)
+              </label>
+              <input
+                type="datetime-local"
+                value={data.startsAt}
+                onChange={(e) => onChange({ startsAt: e.target.value })}
+                className="rd-input w-full"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
+                Global end (optional)
+              </label>
+              <input
+                type="datetime-local"
+                value={data.endsAt}
+                onChange={(e) => onChange({ endsAt: e.target.value })}
+                className="rd-input w-full"
+              />
+            </div>
+          </div>
+        </>
+      )}
+
+      {rt === "WEEKLY" && (
+        <>
+          <div>
+            <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
+              Days of the week *
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {DAY_LABELS.map((label, i) => {
+                const selected = data.recurrenceDaysOfWeek.includes(i)
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => {
+                      const next = selected
+                        ? data.recurrenceDaysOfWeek.filter((d) => d !== i)
+                        : [...data.recurrenceDaysOfWeek, i]
+                      onChange({ recurrenceDaysOfWeek: next })
+                    }}
+                    className="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
+                    style={{
+                      background: selected ? "#e8822a" : "#1a1a1a",
+                      color: selected ? "white" : "#888",
+                      border: `1px solid ${selected ? "#e8822a" : "#333"}`,
+                    }}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
+                Time of day *
+              </label>
+              <input
+                type="time"
+                value={data.recurrenceTimeOfDay}
+                onChange={(e) => onChange({ recurrenceTimeOfDay: e.target.value })}
+                className="rd-input w-full"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
+                Duration (min) *
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={data.duration ?? ""}
+                onChange={(e) => onChange({ duration: parseInt(e.target.value) || null })}
+                className="rd-input w-full"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
+                Timezone
+              </label>
+              <input
+                type="text"
+                value={data.timezone}
+                onChange={(e) => onChange({ timezone: e.target.value })}
+                className="rd-input w-full text-xs"
+              />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
+                Global start (optional)
+              </label>
+              <input
+                type="datetime-local"
+                value={data.startsAt}
+                onChange={(e) => onChange({ startsAt: e.target.value })}
+                className="rd-input w-full"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
+                Global end (optional)
+              </label>
+              <input
+                type="datetime-local"
+                value={data.endsAt}
+                onChange={(e) => onChange({ endsAt: e.target.value })}
+                className="rd-input w-full"
+              />
+            </div>
+          </div>
+        </>
+      )}
+
+      {rt === "MONTHLY" && (
+        <>
+          <div className="grid gap-4 sm:grid-cols-4">
+            <div>
+              <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
+                Day of month *
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={31}
+                value={data.recurrenceDayOfMonth ?? ""}
+                onChange={(e) => onChange({ recurrenceDayOfMonth: parseInt(e.target.value) || null })}
+                className="rd-input w-full"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
+                Time of day *
+              </label>
+              <input
+                type="time"
+                value={data.recurrenceTimeOfDay}
+                onChange={(e) => onChange({ recurrenceTimeOfDay: e.target.value })}
+                className="rd-input w-full"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
+                Duration (min) *
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={data.duration ?? ""}
+                onChange={(e) => onChange({ duration: parseInt(e.target.value) || null })}
+                className="rd-input w-full"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
+                Timezone
+              </label>
+              <input
+                type="text"
+                value={data.timezone}
+                onChange={(e) => onChange({ timezone: e.target.value })}
+                className="rd-input w-full text-xs"
+              />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
+                Global start (optional)
+              </label>
+              <input
+                type="datetime-local"
+                value={data.startsAt}
+                onChange={(e) => onChange({ startsAt: e.target.value })}
+                className="rd-input w-full"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
+                Global end (optional)
+              </label>
+              <input
+                type="datetime-local"
+                value={data.endsAt}
+                onChange={(e) => onChange({ endsAt: e.target.value })}
+                className="rd-input w-full"
+              />
+            </div>
+          </div>
+        </>
+      )}
+    </>
+  )
+}
+
+function isCreateDisabled(ev: NewEvent): boolean {
+  if (!ev.name || !ev.slug) return true
+  if (ev.recurrenceType === "ONCE" && !ev.startsAt) return true
+  if (["HOURLY", "DAILY", "WEEKLY", "MONTHLY"].includes(ev.recurrenceType) && !ev.duration) return true
+  if (ev.recurrenceType === "WEEKLY" && ev.recurrenceDaysOfWeek.length === 0) return true
+  if (ev.recurrenceType === "MONTHLY" && !ev.recurrenceDayOfMonth) return true
+  return false
 }
 
 export default function LiveEventsManager({
@@ -122,8 +596,17 @@ export default function LiveEventsManager({
         slug: newEvent.slug,
         description: newEvent.description || undefined,
         eventData: newEvent.eventData,
-        startsAt: new Date(newEvent.startsAt).toISOString(),
         active: newEvent.active,
+        recurrenceType: newEvent.recurrenceType,
+        recurrenceInterval: newEvent.recurrenceInterval,
+        recurrenceDaysOfWeek: newEvent.recurrenceDaysOfWeek,
+        recurrenceDayOfMonth: newEvent.recurrenceDayOfMonth,
+        duration: newEvent.duration,
+        recurrenceTimeOfDay: newEvent.recurrenceTimeOfDay || undefined,
+        timezone: newEvent.timezone,
+      }
+      if (newEvent.startsAt) {
+        body.startsAt = new Date(newEvent.startsAt).toISOString()
       }
       if (newEvent.endsAt) {
         body.endsAt = new Date(newEvent.endsAt).toISOString()
@@ -158,9 +641,16 @@ export default function LiveEventsManager({
       if (editData.slug !== undefined) body.slug = editData.slug
       if (editData.description !== undefined) body.description = editData.description
       if (editData.eventData !== undefined) body.eventData = editData.eventData
-      if (editData.startsAt !== undefined) body.startsAt = new Date(editData.startsAt).toISOString()
+      if (editData.startsAt !== undefined) body.startsAt = editData.startsAt ? new Date(editData.startsAt).toISOString() : null
       if (editData.endsAt !== undefined) body.endsAt = editData.endsAt ? new Date(editData.endsAt).toISOString() : null
       if (editData.active !== undefined) body.active = editData.active
+      if (editData.recurrenceType !== undefined) body.recurrenceType = editData.recurrenceType
+      if (editData.recurrenceInterval !== undefined) body.recurrenceInterval = editData.recurrenceInterval
+      if (editData.recurrenceDaysOfWeek !== undefined) body.recurrenceDaysOfWeek = editData.recurrenceDaysOfWeek
+      if (editData.recurrenceDayOfMonth !== undefined) body.recurrenceDayOfMonth = editData.recurrenceDayOfMonth
+      if (editData.duration !== undefined) body.duration = editData.duration
+      if (editData.recurrenceTimeOfDay !== undefined) body.recurrenceTimeOfDay = editData.recurrenceTimeOfDay
+      if (editData.timezone !== undefined) body.timezone = editData.timezone
 
       const res = await fetch(apiUrl, {
         method: "PUT",
@@ -225,6 +715,25 @@ export default function LiveEventsManager({
     }
   }
 
+  function eventToEditData(event: EventEntry): NewEvent {
+    return {
+      name: event.name,
+      slug: event.slug,
+      description: event.description ?? "",
+      eventData: event.eventData,
+      startsAt: toLocalDatetime(event.startsAt),
+      endsAt: toLocalDatetime(event.endsAt),
+      active: event.active,
+      recurrenceType: event.recurrenceType,
+      recurrenceInterval: event.recurrenceInterval,
+      recurrenceDaysOfWeek: event.recurrenceDaysOfWeek,
+      recurrenceDayOfMonth: event.recurrenceDayOfMonth,
+      duration: event.duration,
+      recurrenceTimeOfDay: event.recurrenceTimeOfDay ?? "",
+      timezone: event.timezone,
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Info banner */}
@@ -237,7 +746,7 @@ export default function LiveEventsManager({
         }}
       >
         Live Events lets you schedule and control in-game events from this dashboard.
-        Your Roblox game polls these values automatically. Version: <strong>v{version}</strong>
+        Supports one-time, recurring, and always-on events. Version: <strong>v{version}</strong>
       </div>
 
       {error && (
@@ -306,30 +815,10 @@ export default function LiveEventsManager({
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
-                Starts at
-              </label>
-              <input
-                type="datetime-local"
-                value={newEvent.startsAt}
-                onChange={(e) => setNewEvent({ ...newEvent, startsAt: e.target.value })}
-                className="rd-input w-full"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
-                Ends at (optional)
-              </label>
-              <input
-                type="datetime-local"
-                value={newEvent.endsAt}
-                onChange={(e) => setNewEvent({ ...newEvent, endsAt: e.target.value })}
-                className="rd-input w-full"
-              />
-            </div>
-          </div>
+          <RecurrenceFields
+            data={newEvent}
+            onChange={(patch) => setNewEvent((prev) => ({ ...prev, ...patch }))}
+          />
 
           <div>
             <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>
@@ -359,7 +848,7 @@ export default function LiveEventsManager({
 
           <button
             onClick={handleCreate}
-            disabled={loading || !newEvent.name || !newEvent.slug || !newEvent.startsAt}
+            disabled={loading || isCreateDisabled(newEvent)}
             className="rd-button-primary text-sm disabled:opacity-50"
           >
             {loading ? "Creating..." : "Create event"}
@@ -393,6 +882,11 @@ export default function LiveEventsManager({
             const isEditing = editingId === event.id
 
             if (isEditing) {
+              const currentEditData: NewEvent = {
+                ...eventToEditData(event),
+                ...editData,
+              }
+
               return (
                 <div
                   key={event.id}
@@ -408,7 +902,7 @@ export default function LiveEventsManager({
                       <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>Name</label>
                       <input
                         type="text"
-                        value={editData.name ?? event.name}
+                        value={currentEditData.name}
                         onChange={(e) => setEditData({ ...editData, name: e.target.value })}
                         className="rd-input w-full"
                       />
@@ -417,39 +911,23 @@ export default function LiveEventsManager({
                       <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>Slug</label>
                       <input
                         type="text"
-                        value={editData.slug ?? event.slug}
+                        value={currentEditData.slug}
                         onChange={(e) => setEditData({ ...editData, slug: e.target.value })}
                         className="rd-input w-full font-mono text-sm"
                       />
                     </div>
                   </div>
 
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>Starts at</label>
-                      <input
-                        type="datetime-local"
-                        value={editData.startsAt ?? toLocalDatetime(event.startsAt)}
-                        onChange={(e) => setEditData({ ...editData, startsAt: e.target.value })}
-                        className="rd-input w-full"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>Ends at</label>
-                      <input
-                        type="datetime-local"
-                        value={editData.endsAt ?? toLocalDatetime(event.endsAt)}
-                        onChange={(e) => setEditData({ ...editData, endsAt: e.target.value })}
-                        className="rd-input w-full"
-                      />
-                    </div>
-                  </div>
+                  <RecurrenceFields
+                    data={currentEditData}
+                    onChange={(patch) => setEditData((prev) => ({ ...prev, ...patch }))}
+                  />
 
                   <div>
                     <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>Description</label>
                     <input
                       type="text"
-                      value={editData.description ?? event.description ?? ""}
+                      value={currentEditData.description}
                       onChange={(e) => setEditData({ ...editData, description: e.target.value })}
                       className="rd-input w-full"
                     />
@@ -458,7 +936,7 @@ export default function LiveEventsManager({
                   <div>
                     <label className="mb-1 block text-xs font-medium" style={{ color: "#888888" }}>Event data (JSON)</label>
                     <textarea
-                      value={editData.eventData ?? event.eventData}
+                      value={currentEditData.eventData}
                       onChange={(e) => setEditData({ ...editData, eventData: e.target.value })}
                       className="rd-input w-full font-mono text-xs"
                       rows={4}
@@ -512,8 +990,7 @@ export default function LiveEventsManager({
                     </p>
                   )}
                   <p className="mt-1 text-xs" style={{ color: "#555555" }}>
-                    {formatDate(event.startsAt)}
-                    {event.endsAt ? ` → ${formatDate(event.endsAt)}` : " → No end date"}
+                    {formatRecurrence(event)}
                   </p>
                 </div>
 
