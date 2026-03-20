@@ -233,18 +233,6 @@ export default async function GameDetailsPage({
           >
             Open docs
           </Link>
-          <Link
-            href={`/dashboard/games/${game.id}/config`}
-            className="rd-button-secondary"
-          >
-            Live Config
-          </Link>
-          <Link
-            href={`/dashboard/games/${game.id}/events`}
-            className="rd-button-secondary"
-          >
-            Live Events
-          </Link>
         </div>
       </div>
 
@@ -401,6 +389,61 @@ export default async function GameDetailsPage({
               description="Open developer snippets for custom events, purchases, and modules."
               href="/dashboard/docs"
             />
+          </div>
+        </section>
+
+        <section className="rd-card p-5">
+          <h2 className="text-base font-semibold text-white">Features</h2>
+          <p className="mt-1 text-sm" style={{ color: "#9ca3af" }}>
+            Optional add-ons you can enable for this game. Each requires a separate Luau module in your game.
+          </p>
+
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <Link
+              href={`/dashboard/games/${game.id}/config`}
+              className="group rounded-xl p-5 transition-colors"
+              style={{ background: "#1a1a1a", border: "1px solid #2a2a2a" }}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+                  style={{ background: "rgba(232,130,42,0.1)" }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ color: "#e8822a" }}>
+                    <path d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-white group-hover:text-[#e8822a] transition-colors">Live Config</p>
+                  <p className="mt-0.5 text-xs" style={{ color: "#888888" }}>
+                    Change game parameters in real-time without republishing.
+                  </p>
+                </div>
+              </div>
+            </Link>
+
+            <Link
+              href={`/dashboard/games/${game.id}/events`}
+              className="group rounded-xl p-5 transition-colors"
+              style={{ background: "#1a1a1a", border: "1px solid #2a2a2a" }}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+                  style={{ background: "rgba(232,130,42,0.1)" }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ color: "#e8822a" }}>
+                    <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-white group-hover:text-[#e8822a] transition-colors">Live Events</p>
+                  <p className="mt-0.5 text-xs" style={{ color: "#888888" }}>
+                    Schedule and control in-game events with custom data.
+                  </p>
+                </div>
+              </div>
+            </Link>
           </div>
         </section>
 

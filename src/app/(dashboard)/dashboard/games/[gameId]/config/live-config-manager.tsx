@@ -459,28 +459,28 @@ export default function LiveConfigManager({
         >
           <p className="text-sm font-semibold text-white mb-3">How to use in your game</p>
           <p className="text-xs mb-3" style={{ color: "#888888" }}>
-            Live Config is built into the DashbloxRuntime script — no extra module needed. Re-download your script from the game page if you haven{"'"}t updated it recently. Then read configs from any server script:
+            Require the Live Config add-on module from any server script:
           </p>
           <pre
             className="overflow-x-auto rounded-lg p-4 text-xs font-mono"
             style={{ background: "#111111", color: "#d1d5db" }}
           >
-{`local ServerStorage = game:GetService("ServerStorage")
-local RblxDash = ServerStorage:WaitForChild("RblxDash")
-local GetConfig = RblxDash:WaitForChild("GetConfig")
-local GetAllConfig = RblxDash:WaitForChild("GetAllConfig")
+{`local ServerScriptService = game:GetService("ServerScriptService")
+local LiveConfig = require(ServerScriptService:WaitForChild("RblxDashLiveConfig"))
 
 -- Read a single value (with optional default)
-local maxPlayers = GetConfig:Invoke("game.maxPlayers", 20)
+local maxPlayers = LiveConfig.get("game.maxPlayers", 20)
 
 -- Read all configs as a table
-local allConfigs = GetAllConfig:Invoke()
+local allConfigs = LiveConfig.getAll()
 
 -- React when configs change in real-time
-local ConfigChanged = RblxDash:WaitForChild("ConfigChanged")
-ConfigChanged.Event:Connect(function(newConfig, oldConfig)
-    print("Configs updated!")
-end)`}
+LiveConfig.onChanged:Connect(function(newConfig, oldConfig)
+    print("Configs updated to v" .. tostring(LiveConfig.getVersion()))
+end)
+
+-- Force an immediate refresh
+LiveConfig.refresh()`}
           </pre>
         </div>
       )}

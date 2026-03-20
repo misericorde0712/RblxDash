@@ -42,7 +42,6 @@ export async function GET(
       webhookUrl: `${appUrl}/api/webhook/${game.id}`,
       webhookSecret: game.webhookSecret,
       moderationUrl: `${appUrl}/api/webhook/${game.id}/moderation`,
-      configUrl: `${appUrl}/api/webhook/${game.id}/config`,
     })
 
     return new NextResponse(script, {

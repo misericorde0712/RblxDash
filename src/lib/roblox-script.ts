@@ -179,14 +179,12 @@ export function buildRobloxServerScript(params: {
     webhookUrl: string
     webhookSecret: string
     moderationUrl: string
-    configUrl: string
 }) {
     const gameLabel = params.gameName.replace(/[\r\n]+/g, " ")
     const escapedGameName = escapeLuaString(gameLabel)
     const escapedWebhookUrl = escapeLuaString(params.webhookUrl)
     const escapedWebhookSecret = escapeLuaString(params.webhookSecret)
     const escapedModerationUrl = escapeLuaString(params.moderationUrl)
-    const escapedConfigUrl = escapeLuaString(params.configUrl)
 
     return `-- RblxDash integration bootstrap for ${gameLabel}
 -- Place this Script inside ServerScriptService.
@@ -242,7 +240,6 @@ local ServerStorage = game:GetService("ServerStorage")
 local WEBHOOK_URL = "${escapedWebhookUrl}"
 local WEBHOOK_SECRET = "${escapedWebhookSecret}"
 local MODERATION_URL = "${escapedModerationUrl}"
-local CONFIG_URL = "${escapedConfigUrl}"
 local API_FOLDER_NAME = "RblxDash"
 local LEGACY_BRIDGE_NAME = "RblxDashEvent"
 local TRACK_EVENT_FUNCTION_NAME = "TrackEvent"
@@ -690,63 +687,6 @@ local function applyInstantModeration(data)
     end
 end
 
--- Live Config
-local liveConfigData = {}
-local liveConfigVersion = nil
-local liveConfigChangedEvent = Instance.new("BindableEvent")
-
-local function fetchLiveConfig()
-    if CONFIG_URL == "" then
-        return false
-    end
-
-    local headers = {
-        ["x-webhook-secret"] = WEBHOOK_SECRET,
-    }
-
-    if liveConfigVersion then
-        headers["If-None-Match"] = '"v' .. tostring(liveConfigVersion) .. '"'
-    end
-
-    local success, response = pcall(function()
-        return HttpService:RequestAsync({
-            Url = CONFIG_URL,
-            Method = "GET",
-            Headers = headers,
-        })
-    end)
-
-    if not success then
-        log("LiveConfig fetch failed: " .. tostring(response))
-        return false
-    end
-
-    if response.StatusCode == 304 then
-        return false
-    end
-
-    if not response.Success then
-        log("LiveConfig fetch rejected: " .. tostring(response.StatusCode))
-        return false
-    end
-
-    local decodeOk, decoded = pcall(function()
-        return HttpService:JSONDecode(response.Body)
-    end)
-
-    if not decodeOk or type(decoded) ~= "table" then
-        return false
-    end
-
-    local oldConfig = liveConfigData
-    liveConfigData = decoded.config or {}
-    liveConfigVersion = decoded.version
-
-    log("LiveConfig updated to v" .. tostring(decoded.version))
-    liveConfigChangedEvent:Fire(liveConfigData, oldConfig)
-    return true
-end
-
 local bridge = ServerStorage:FindFirstChild(LEGACY_BRIDGE_NAME)
 
 if bridge and not bridge:IsA("BindableEvent") then
@@ -780,29 +720,6 @@ end)
 
 ensureBindableFunction(apiFolder, TRACK_ERROR_FUNCTION_NAME, function(player, errorMessage, payload)
     return trackError(player, errorMessage, payload)
-end)
-
-ensureBindableFunction(apiFolder, "GetConfig", function(key, defaultValue)
-    local value = liveConfigData[key]
-    if value == nil then
-        return defaultValue
-    end
-    return value
-end)
-
-ensureBindableFunction(apiFolder, "GetAllConfig", function()
-    local copy = {}
-    for k, v in pairs(liveConfigData) do
-        copy[k] = v
-    end
-    return copy
-end)
-
-local configChangedBridge = Instance.new("BindableEvent")
-configChangedBridge.Name = "ConfigChanged"
-configChangedBridge.Parent = apiFolder
-liveConfigChangedEvent.Event:Connect(function(newConfig, oldConfig)
-    configChangedBridge:Fire(newConfig, oldConfig)
 end)
 
 sendEvent("server_started", buildServerPayload(), nil)
@@ -868,28 +785,6 @@ pcall(function()
         end
     end)
     log("Subscribed to MessagingService topic: RblxDash_Moderation")
-end)
-
--- MessagingService: instant Live Config updates
-pcall(function()
-    MessagingService:SubscribeAsync("RblxDash_LiveConfig", function()
-        task.defer(function()
-            fetchLiveConfig()
-        end)
-    end)
-    log("Subscribed to MessagingService topic: RblxDash_LiveConfig")
-end)
-
--- Live Config: initial fetch + polling fallback
-task.spawn(function()
-    fetchLiveConfig()
-end)
-
-task.spawn(function()
-    while true do
-        task.wait(60)
-        fetchLiveConfig()
-    end
 end)
 
 -- MessagingService: listen for dashboard commands on topic "RblxDash"
