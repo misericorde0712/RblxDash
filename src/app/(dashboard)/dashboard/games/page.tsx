@@ -293,41 +293,10 @@ export default async function GamesPage({
         )}
       </div>
 
-      <div className="mb-6 grid gap-4 lg:grid-cols-4">
-        <MetricCard
-          title="Workspace Games"
-          value={formatCount(games.length)}
-          detail={`${formatCount(
-            usage.currentOrgGamesCount
-          )} connected in this workspace.`}
-        />
-        <MetricCard
-          title="Account Usage"
-          value={usageCardLabel}
-          detail="Game slots used across the full billing account."
-        />
-        <MetricCard
-          title="Live Right Now"
-          value={`${formatCount(workspaceLiveServers)} servers`}
-          detail={`${formatCount(
-            workspaceOnlinePlayers
-          )} players online across this workspace.`}
-        />
-        <MetricCard
-          title="Current Selection"
-          value={currentGame?.name ?? "No active game"}
-          detail={
-            currentGame
-              ? "Sidebar actions will follow this game."
-              : "Pick a game from the list or sidebar."
-          }
-        />
-      </div>
-
-      <div className="rd-card mb-6 p-4 text-sm" style={{ color: "#9ca3af" }}>
-        {Number.isFinite(usage.maxGames)
-          ? `${usageLabel} game slots used across this billing account. This workspace currently has ${usage.currentOrgGamesCount} game(s).`
-          : `${usageLabel} games connected across this billing account. This workspace currently has ${usage.currentOrgGamesCount} game(s).`}
+      <div className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm" style={{ color: "#666666" }}>
+        <span>{formatCount(games.length)} game{games.length !== 1 ? "s" : ""} in this workspace</span>
+        <span>Usage: <strong className="text-white">{usageCardLabel}</strong></span>
+        <span>Live: <strong className="text-white">{formatCount(workspaceLiveServers)} servers</strong> · {formatCount(workspaceOnlinePlayers)} players</span>
       </div>
 
       {usage.isOverGameLimit ? (
@@ -480,104 +449,23 @@ export default async function GamesPage({
                 </div>
               </div>
 
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <MetricCard
-                  variant="muted"
-                  title="Live Servers"
-                  value={formatCount(game.liveServersNow)}
-                  detail={
-                    game.lastHeartbeatAt
-                      ? `Last heartbeat ${formatRelativeTime(
-                          game.lastHeartbeatAt,
-                          now
-                        )}`
-                      : "No active heartbeat"
-                  }
-                />
-                <MetricCard
-                  variant="muted"
-                  title="Players Online"
-                  value={formatCount(game.playersOnlineNow)}
-                  detail="Approximate live player count across active servers."
-                />
-                <MetricCard
-                  variant="muted"
-                  title="Events 24h"
-                  value={formatCount(game.events24h)}
-                  detail="Webhook events received in the last 24 hours."
-                />
-                <MetricCard
-                  variant="muted"
-                  title="Health"
-                  value={game.health.label}
-                  detail={game.health.detail}
-                />
-              </div>
-
-              <div className="rd-card-quiet mt-5 p-4">
-                <p className="rd-label">
-                  Latest event
-                </p>
-                <p className="mt-2 text-sm font-medium text-white">
-                  {game.latestEventDisplay?.label ?? "No webhook event yet"}
-                </p>
-                <p className="mt-1 text-sm" style={{ color: "#9ca3af" }}>
-                  {game.latestEventDisplay?.summary ??
-                    "Connect the runtime and start the game to populate this feed."}
-                </p>
-              </div>
-
-              <div className="mt-5 flex flex-wrap gap-2">
-                {game.modules.length > 0 ? (
-                  game.modules.map((moduleId) => (
-                    <span
-                      key={moduleId}
-                      className="rounded-full px-2.5 py-1 text-xs"
-                      style={{ border: "1px solid #3a3a3a", color: "#9ca3af" }}
-                    >
-                      {moduleId}
-                    </span>
-                  ))
-                ) : (
-                  <span className="rounded-full px-2.5 py-1 text-xs" style={{ border: "1px solid #2a2a2a", color: "#666666" }}>
-                    No extra modules enabled
-                  </span>
+              <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs" style={{ color: "#666666" }}>
+                <span>{formatCount(game.liveServersNow)} server{game.liveServersNow !== 1 ? "s" : ""} · {formatCount(game.playersOnlineNow)} players</span>
+                <span>{formatCount(game.events24h)} events (24h)</span>
+                {game.latestEventDisplay && (
+                  <span>Last: {game.latestEventDisplay.label}</span>
                 )}
               </div>
 
-              <div className="mt-5 flex flex-wrap items-center gap-3">
+              <div className="mt-4">
                 <Link
                   href={getActivateGameHref(
                     game.id,
                     `/dashboard/games/${game.id}`
                   )}
-                  className="rd-button-primary"
+                  className="rd-button-primary text-sm"
                 >
                   Open
-                </Link>
-                <Link
-                  href={getActivateGameHref(game.id, "/dashboard/health")}
-                  className="rd-link-accent text-sm font-medium"
-                >
-                  Health
-                </Link>
-                <Link
-                  href={getActivateGameHref(game.id, "/dashboard/logs")}
-                  className="rd-link-accent text-sm font-medium"
-                >
-                  Logs
-                </Link>
-                <Link
-                  href={getActivateGameHref(game.id, "/dashboard/analytics")}
-                  className="rd-link-accent text-sm font-medium"
-                >
-                  Analytics
-                </Link>
-                <Link
-                  href={getActivateGameHref(game.id, "/dashboard/players")}
-                  className="rd-link-accent text-sm font-medium"
-                >
-                  Players
                 </Link>
               </div>
             </section>

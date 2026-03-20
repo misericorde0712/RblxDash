@@ -1,7 +1,6 @@
 import Link from "next/link"
 import {
   HealthBadge,
-  QuickLinkCard,
 } from "../_components/game-hub-ui"
 import { requireCurrentOrg } from "@/lib/auth"
 import {
@@ -624,31 +623,6 @@ export default async function GameHealthPage() {
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href={`/dashboard/games/${currentGame.id}`}
-            className="rd-button-secondary"
-          >
-            Open game page
-          </Link>
-          <Link
-            href="/dashboard/logs"
-            className="rd-button-secondary"
-          >
-            Open logs
-          </Link>
-          <Link
-            href="/dashboard/moderation"
-            className="rd-button-secondary"
-          >
-            Open moderation
-          </Link>
-        </div>
-      </div>
-
-      <div className="rd-card mb-6 p-4 text-sm" style={{ color: "#9ca3af" }}>
-        This page shows whether the selected game is still talking to Dashblox,
-        how many live servers are active, and whether moderation delivery is healthy.
       </div>
 
       <HealthLiveRefresh />
@@ -715,37 +689,6 @@ export default async function GameHealthPage() {
           detail={moderationHealth.detail}
         />
       </div>
-
-      <section className="rd-card mb-8 p-5">
-        <h2 className="text-base font-semibold text-white">Jump to</h2>
-        <p className="mt-1 text-sm" style={{ color: "#9ca3af" }}>
-          Use the same game-scoped navigation pattern here to move from monitoring
-          into investigation or action.
-        </p>
-
-        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <QuickLinkCard
-            title="Game page"
-            description="Return to the game control center and connection details."
-            href={`/dashboard/games/${currentGame.id}`}
-          />
-          <QuickLinkCard
-            title="Logs"
-            description="Inspect the live event feed and drill into recent telemetry."
-            href="/dashboard/logs"
-          />
-          <QuickLinkCard
-            title="Players"
-            description="Review live sessions, tracked players, and recent player activity."
-            href="/dashboard/players"
-          />
-          <QuickLinkCard
-            title="Moderation"
-            description="Inspect pending acknowledgements and delivery failures."
-            href="/dashboard/moderation"
-          />
-        </div>
-      </section>
 
       <div className="mb-8 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <section className="rd-card p-5">

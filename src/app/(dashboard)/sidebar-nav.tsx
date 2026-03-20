@@ -111,8 +111,14 @@ function getNavSections(currentGameId: string | null): NavSection[] {
     { href: "/dashboard/moderation",  label: "Moderation", icon: icons.moderation },
   ]
 
+  const workspaceItems: NavItem[] = [
+    { href: "/dashboard/games",    label: "Games",    icon: icons.games },
+    { href: "/dashboard/audit",    label: "Audit Log", icon: icons.audit },
+    { href: "/dashboard/settings", label: "Settings", icon: icons.settings },
+  ]
+
   if (currentGameId) {
-    gameItems.push(
+    workspaceItems.push(
       { href: `/dashboard/games/${currentGameId}/config`,  label: "Live Config",  icon: icons.config },
       { href: `/dashboard/games/${currentGameId}/events`,  label: "Live Events",  icon: icons.events },
     )
@@ -131,11 +137,7 @@ function getNavSections(currentGameId: string | null): NavSection[] {
     },
     {
       label: "Workspace",
-      items: [
-        { href: "/dashboard/games",    label: "Games",    icon: icons.games },
-        { href: "/dashboard/audit",    label: "Audit Log", icon: icons.audit },
-        { href: "/dashboard/settings", label: "Settings", icon: icons.settings },
-      ],
+      items: workspaceItems,
     },
     {
       label: "Account",
