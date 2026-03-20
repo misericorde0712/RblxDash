@@ -417,6 +417,15 @@ local function applyModeration(player)
         return
     end
 
+    -- Persist ban/timeout to DataStore so it survives server restarts
+    if sanction.type == "BAN" or sanction.type == "TIMEOUT" then
+        writeDataStoreBan(tostring(player.UserId), {
+            reason = sanction.reason,
+            moderator = sanction.moderator,
+            expiresAt = sanction.expiresAt,
+        })
+    end
+
     local kickSuccess, kickError = pcall(function()
         player:Kick(buildModerationMessage(sanction))
     end)
@@ -431,6 +440,28 @@ local function applyModeration(player)
     })
 end
 
+local function writeDataStoreBan(robloxId, data)
+    pcall(function()
+        local banStore = DataStoreService:GetDataStore("RblxDash_Bans")
+        banStore:SetAsync(tostring(robloxId), {
+            banned = true,
+            reason = data.reason or "Banned",
+            moderator = data.moderator or "System",
+            bannedAt = os.date("!%Y-%m-%dT%H:%M:%SZ"),
+            expiresAt = data.expiresAt,
+        })
+        log("DataStore ban written for " .. tostring(robloxId))
+    end)
+end
+
+local function removeDataStoreBan(robloxId)
+    pcall(function()
+        local banStore = DataStoreService:GetDataStore("RblxDash_Bans")
+        banStore:RemoveAsync(tostring(robloxId))
+        log("DataStore ban removed for " .. tostring(robloxId))
+    end)
+end
+
 local function applyInstantModeration(data)
     if type(data) ~= "table" or type(data.robloxId) ~= "string" then
         return
@@ -441,8 +472,11 @@ local function applyInstantModeration(data)
         return
     end
 
-    -- UNBAN: nothing to do in-game (player isn't connected if banned)
-    if data.action == "UNBAN" then
+    -- Write/remove DataStore ban for persistence across server restarts
+    if data.action == "BAN" or data.action == "TIMEOUT" then
+        writeDataStoreBan(data.robloxId, data)
+    elseif data.action == "UNBAN" then
+        removeDataStoreBan(data.robloxId)
         log("Unban received for " .. data.robloxId .. " via MessagingService")
         return
     end

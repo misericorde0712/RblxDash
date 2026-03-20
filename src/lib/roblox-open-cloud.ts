@@ -1,4 +1,5 @@
 import "server-only"
+import { createHash } from "crypto"
 
 const OPEN_CLOUD_BASE = "https://apis.roblox.com"
 const DATASTORE_NAME = "RblxDash_Bans"
@@ -131,7 +132,7 @@ export async function writeDataStoreBan(
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
-      "content-md5": Buffer.from(body).toString("base64"),
+      "content-md5": createHash("md5").update(body).digest("base64"),
     },
     body,
     cache: "no-store",

@@ -9,7 +9,7 @@ import {
 } from "@/lib/player-moderation"
 import { prisma } from "@/lib/prisma"
 import { ensureRobloxAccessToken } from "@/lib/roblox-connection"
-import { writeDataStoreBan, deleteDataStoreBan, publishMessagingServiceMessage } from "@/lib/roblox-open-cloud"
+import { publishMessagingServiceMessage } from "@/lib/roblox-open-cloud"
 import { createLogger } from "@/lib/logger"
 
 const log = createLogger("sanctions")
@@ -189,35 +189,8 @@ export async function POST(
       if (tokenResult && game?.robloxUniverseId) {
         const scopes = tokenResult.connection.scopes
 
-        // Persistent DataStore ban (BAN/UNBAN only)
-        if (scopes.includes("universe-datastores:write")) {
-          if (type === "BAN") {
-            writeDataStoreBan(
-              tokenResult.accessToken,
-              game.robloxUniverseId,
-              robloxId,
-              {
-                banned: true,
-                reason,
-                moderator: moderatorLabel,
-                bannedAt: now.toISOString(),
-                expiresAt: sanction.expiresAt?.toISOString() ?? null,
-              }
-            ).catch((err) =>
-              log.error("DataStore ban write failed", {}, err instanceof Error ? err : undefined)
-            )
-          } else if (type === "UNBAN") {
-            deleteDataStoreBan(
-              tokenResult.accessToken,
-              game.robloxUniverseId,
-              robloxId
-            ).catch((err) =>
-              log.error("DataStore ban delete failed", {}, err instanceof Error ? err : undefined)
-            )
-          }
-        }
-
         // Instant MessagingService notification to all game servers
+        // The Luau runtime handles DataStore persistence on the game side
         if (scopes.includes("universe-messaging-service:publish")) {
           const message = JSON.stringify({
             action: type,
