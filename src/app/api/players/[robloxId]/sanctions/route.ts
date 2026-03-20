@@ -9,7 +9,10 @@ import {
 } from "@/lib/player-moderation"
 import { prisma } from "@/lib/prisma"
 import { ensureRobloxAccessToken } from "@/lib/roblox-connection"
-import { writeDataStoreBan, deleteDataStoreBan } from "@/lib/roblox-open-cloud"
+import { writeDataStoreBan, deleteDataStoreBan, publishMessagingServiceMessage } from "@/lib/roblox-open-cloud"
+import { createLogger } from "@/lib/logger"
+
+const log = createLogger("sanctions")
 
 const CreateSanctionSchema = z
   .object({
@@ -171,8 +174,8 @@ export async function POST(
       })
     })
 
-    // ── Persistent DataStore ban (fire-and-forget) ───────────────────────────
-    if (type === "BAN" || type === "UNBAN") {
+    // ── Open Cloud: DataStore + MessagingService (fire-and-forget) ──────────
+    {
       const game = await prisma.game.findUnique({
         where: { id: currentGame.id },
         select: {
@@ -183,33 +186,55 @@ export async function POST(
       const connectionUserId = game?.robloxConnection?.userId ?? dbUser.id
       const tokenResult = await ensureRobloxAccessToken(connectionUserId).catch(() => null)
 
-      if (
-        tokenResult &&
-        tokenResult.connection.scopes.includes("universe-datastores:write") &&
-        game?.robloxUniverseId
-      ) {
-        if (type === "BAN") {
-          writeDataStoreBan(
-            tokenResult.accessToken,
-            game.robloxUniverseId,
+      if (tokenResult && game?.robloxUniverseId) {
+        const scopes = tokenResult.connection.scopes
+
+        // Persistent DataStore ban (BAN/UNBAN only)
+        if (scopes.includes("universe-datastores:write")) {
+          if (type === "BAN") {
+            writeDataStoreBan(
+              tokenResult.accessToken,
+              game.robloxUniverseId,
+              robloxId,
+              {
+                banned: true,
+                reason,
+                moderator: moderatorLabel,
+                bannedAt: now.toISOString(),
+                expiresAt: sanction.expiresAt?.toISOString() ?? null,
+              }
+            ).catch((err) =>
+              log.error("DataStore ban write failed", {}, err instanceof Error ? err : undefined)
+            )
+          } else if (type === "UNBAN") {
+            deleteDataStoreBan(
+              tokenResult.accessToken,
+              game.robloxUniverseId,
+              robloxId
+            ).catch((err) =>
+              log.error("DataStore ban delete failed", {}, err instanceof Error ? err : undefined)
+            )
+          }
+        }
+
+        // Instant MessagingService notification to all game servers
+        if (scopes.includes("universe-messaging-service:publish")) {
+          const message = JSON.stringify({
+            action: type,
+            sanctionId: sanction.id,
             robloxId,
-            {
-              banned: true,
-              reason,
-              moderator: moderatorLabel,
-              bannedAt: now.toISOString(),
-              expiresAt: null,
-            }
-          ).catch((err) =>
-            console.warn("[sanctions] DataStore ban write failed:", err)
-          )
-        } else if (type === "UNBAN") {
-          deleteDataStoreBan(
+            reason,
+            moderator: moderatorLabel,
+            expiresAt: sanction.expiresAt?.toISOString() ?? null,
+          })
+
+          publishMessagingServiceMessage(
             tokenResult.accessToken,
             game.robloxUniverseId,
-            robloxId
+            "RblxDash_Moderation",
+            message
           ).catch((err) =>
-            console.warn("[sanctions] DataStore ban delete failed:", err)
+            log.error("MessagingService publish failed", {}, err instanceof Error ? err : undefined)
           )
         }
       }
@@ -257,7 +282,7 @@ export async function POST(
       )
     }
 
-    console.error("[POST /api/players/[robloxId]/sanctions]", err)
+    log.error("Sanction creation failed", {}, err instanceof Error ? err : undefined)
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

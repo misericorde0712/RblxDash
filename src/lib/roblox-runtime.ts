@@ -40,7 +40,7 @@ DashbloxRuntime.start({
     webhookSecret = "${escapedWebhookSecret}",
     moderationUrl = "${escapedModerationUrl}",
     heartbeatSeconds = 30,
-    moderationPollSeconds = 10,
+    moderationPollSeconds = 60,
     enablePlayerLifecycle = true,
     enableModeration = true,
 })`
@@ -50,6 +50,8 @@ export function buildRobloxRuntimeModuleScript() {
   return `local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ServerStorage = game:GetService("ServerStorage")
+local DataStoreService = game:GetService("DataStoreService")
+local MessagingService = game:GetService("MessagingService")
 
 local API_FOLDER_NAME_DEFAULT = "RblxDash"
 local LEGACY_BRIDGE_NAME_DEFAULT = "RblxDashEvent"
@@ -354,6 +356,48 @@ local function buildModerationMessage(sanction)
     return prefix
 end
 
+local function checkDataStoreBan(player)
+    local success, result = pcall(function()
+        local banStore = DataStoreService:GetDataStore("RblxDash_Bans")
+        return banStore:GetAsync(tostring(player.UserId))
+    end)
+
+    if not success or type(result) ~= "table" then
+        return nil
+    end
+
+    if not result.banned then
+        return nil
+    end
+
+    -- Check expiry
+    if type(result.expiresAt) == "string" and result.expiresAt ~= "" then
+        local now = os.time()
+        -- Parse ISO date (approximate: works for most cases)
+        local year, month, day, hour, min, sec = result.expiresAt:match("(%d+)-(%d+)-(%d+)T(%d+):(%d+):(%d+)")
+        if year then
+            local expiryTime = os.time({
+                year = tonumber(year),
+                month = tonumber(month),
+                day = tonumber(day),
+                hour = tonumber(hour),
+                min = tonumber(min),
+                sec = tonumber(sec),
+            })
+            if now >= expiryTime then
+                return nil
+            end
+        end
+    end
+
+    return {
+        type = "BAN",
+        reason = result.reason or "Banned",
+        moderator = result.moderator or "System",
+        id = "datastore",
+    }
+end
+
 local function applyModeration(player)
     if typeof(player) ~= "Instance" or not player:IsA("Player") then
         return
@@ -385,6 +429,55 @@ local function applyModeration(player)
     sendModerationAck("moderation_failed", player, sanction, {
         error = tostring(kickError),
     })
+end
+
+local function applyInstantModeration(data)
+    if type(data) ~= "table" or type(data.robloxId) ~= "string" then
+        return
+    end
+
+    local targetUserId = tonumber(data.robloxId)
+    if not targetUserId then
+        return
+    end
+
+    -- UNBAN: nothing to do in-game (player isn't connected if banned)
+    if data.action == "UNBAN" then
+        log("Unban received for " .. data.robloxId .. " via MessagingService")
+        return
+    end
+
+    -- Find the player in this server
+    local player = nil
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p.UserId == targetUserId then
+            player = p
+            break
+        end
+    end
+
+    if not player then
+        return
+    end
+
+    local sanction = {
+        id = data.sanctionId,
+        type = data.action,
+        reason = data.reason,
+        expiresAt = data.expiresAt,
+    }
+
+    local kickSuccess, kickError = pcall(function()
+        player:Kick(buildModerationMessage(sanction))
+    end)
+
+    if kickSuccess then
+        sendModerationAck("moderation_applied", player, sanction)
+    else
+        sendModerationAck("moderation_failed", player, sanction, {
+            error = tostring(kickError),
+        })
+    end
 end
 
 function Runtime.start(config)
@@ -450,9 +543,25 @@ function Runtime.start(config)
 
     if activeConfig.enablePlayerLifecycle then
         Players.PlayerAdded:Connect(function(player)
+            -- Layer 1: Check DataStore ban instantly (no HTTP needed)
+            if activeConfig.enableModeration then
+                local datastoreBan = checkDataStoreBan(player)
+                if datastoreBan then
+                    log("Player " .. tostring(player.UserId) .. " banned via DataStore")
+                    local kickOk = pcall(function()
+                        player:Kick(buildModerationMessage(datastoreBan))
+                    end)
+                    if kickOk then
+                        sendModerationAck("moderation_applied", player, datastoreBan)
+                    end
+                    return
+                end
+            end
+
             sendEvent("player_join", buildServerPayload(), player)
             sendEvent("player_session_started", buildServerPayload(), player)
 
+            -- Layer 2: Check API for pending sanctions (kick, timeout, etc.)
             if activeConfig.enableModeration then
                 task.defer(function()
                     applyModeration(player)
@@ -466,6 +575,33 @@ function Runtime.start(config)
         end)
     end
 
+    -- Layer 3: Subscribe to MessagingService for instant sanctions
+    if activeConfig.enableModeration then
+        local subscribeOk, subscribeErr = pcall(function()
+            MessagingService:SubscribeAsync("RblxDash_Moderation", function(message)
+                if type(message) ~= "table" or type(message.Data) ~= "string" then
+                    return
+                end
+
+                local decodeOk, data = pcall(function()
+                    return HttpService:JSONDecode(message.Data)
+                end)
+
+                if decodeOk and type(data) == "table" then
+                    task.defer(function()
+                        applyInstantModeration(data)
+                    end)
+                end
+            end)
+        end)
+
+        if subscribeOk then
+            log("Subscribed to MessagingService topic RblxDash_Moderation")
+        else
+            log("MessagingService subscribe failed: " .. tostring(subscribeErr))
+        end
+    end
+
     task.spawn(function()
         while true do
             task.wait(activeConfig.heartbeatSeconds)
@@ -473,6 +609,7 @@ function Runtime.start(config)
         end
     end)
 
+    -- Layer 4: Polling fallback (safety net, reduced frequency)
     if activeConfig.enableModeration then
         task.spawn(function()
             while true do

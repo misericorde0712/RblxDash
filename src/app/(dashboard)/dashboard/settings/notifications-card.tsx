@@ -12,6 +12,8 @@ export default function NotificationsCard({
   const [url, setUrl] = useState(currentDiscordWebhookUrl ?? "")
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [testStatus, setTestStatus] = useState<"idle" | "sending" | "sent" | "error">("idle")
+  const [testError, setTestError] = useState<string | null>(null)
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -91,15 +93,55 @@ export default function NotificationsCard({
       </form>
 
       {currentDiscordWebhookUrl && (
-        <div
-          className="mt-5 rounded-xl px-4 py-3 text-sm"
-          style={{
-            background: "rgba(74,222,128,0.06)",
-            border: "1px solid rgba(74,222,128,0.15)",
-            color: "#86efac",
-          }}
-        >
-          Discord alerts active — moderation failures and dead webhooks will be sent to your channel.
+        <div className="mt-5 space-y-3">
+          <div
+            className="rounded-xl px-4 py-3 text-sm"
+            style={{
+              background: "rgba(74,222,128,0.06)",
+              border: "1px solid rgba(74,222,128,0.15)",
+              color: "#86efac",
+            }}
+          >
+            Discord alerts active — moderation failures and dead webhooks will be sent to your channel.
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              disabled={testStatus === "sending"}
+              onClick={async () => {
+                setTestStatus("sending")
+                setTestError(null)
+                try {
+                  const res = await fetch("/api/orgs/notifications/test", { method: "POST" })
+                  if (res.ok) {
+                    setTestStatus("sent")
+                    setTimeout(() => setTestStatus("idle"), 5000)
+                  } else {
+                    const data = await res.json().catch(() => ({ error: "Unknown error" }))
+                    setTestError(data.error ?? "Test failed")
+                    setTestStatus("error")
+                    setTimeout(() => setTestStatus("idle"), 5000)
+                  }
+                } catch {
+                  setTestError("Network error")
+                  setTestStatus("error")
+                  setTimeout(() => setTestStatus("idle"), 5000)
+                }
+              }}
+              className="rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:opacity-50"
+              style={{ border: "1px solid #2a2a2a", color: "#9ca3af" }}
+            >
+              {testStatus === "sending" ? "Sending..." : "Send test notification"}
+            </button>
+
+            {testStatus === "sent" && (
+              <span className="text-xs" style={{ color: "#86efac" }}>Sent! Check your Discord channel.</span>
+            )}
+            {testStatus === "error" && testError && (
+              <span className="text-xs" style={{ color: "#fca5a5" }}>{testError}</span>
+            )}
+          </div>
         </div>
       )}
     </section>
