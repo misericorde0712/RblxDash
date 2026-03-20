@@ -64,6 +64,7 @@ async function notifyConfigChanged(game: { robloxUniverseId: string | null; robl
 
   try {
     const tokenResult = await ensureRobloxAccessToken(game.robloxConnection.userId)
+    if (!tokenResult) return
     await publishMessagingServiceMessage(
       tokenResult.accessToken,
       game.robloxUniverseId,
