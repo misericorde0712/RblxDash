@@ -109,6 +109,7 @@ export default function PlayerDetailPanel({
   const [sanctionReason, setSanctionReason] = useState("")
   const [durationMinutes, setDurationMinutes] = useState("30")
   const [busyKey, setBusyKey] = useState<"note" | "sanction" | null>(null)
+  const [unbanningId, setUnbanningId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -231,6 +232,55 @@ export default function PlayerDetailPanel({
     }
   }
 
+  async function handleQuickUnban(sanctionId: string) {
+    setUnbanningId(sanctionId)
+    setError(null)
+    setNotice(null)
+
+    try {
+      const response = await fetch(`/api/players/${robloxId}/sanctions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "UNBAN", reason: "Unbanned from dashboard" }),
+      })
+      const data = await response.json()
+
+      if (!response.ok) {
+        setError(data.error ?? "Unable to unban player")
+        return
+      }
+
+      const nextSanction = {
+        id: data.sanction.id,
+        type: data.sanction.type,
+        reason: data.sanction.reason,
+        active: data.sanction.active,
+        createdAt: data.sanction.createdAt,
+        updatedAt: data.sanction.updatedAt,
+        expiresAt: data.sanction.expiresAt,
+        moderator: data.sanction.moderator,
+        deliveryStatus: data.sanction.deliveryStatus,
+        deliveredAt: data.sanction.deliveredAt,
+        deliveryDetails: data.sanction.deliveryDetails,
+      } satisfies PlayerSanctionItem
+
+      setSanctionItems((currentItems) => [
+        nextSanction,
+        ...currentItems.map((item) =>
+          item.type === "BAN" || item.type === "TIMEOUT"
+            ? { ...item, active: false }
+            : item
+        ),
+      ])
+      setNotice("Player unbanned")
+      startTransition(() => { router.refresh() })
+    } catch {
+      setError("Unable to unban player")
+    } finally {
+      setUnbanningId(null)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {error ? (
@@ -260,11 +310,24 @@ export default function PlayerDetailPanel({
               Kicks, timeouts, bans, and unbans sync back to the Roblox game.
             </p>
           </div>
-          <div
-            className="rounded-lg px-3 py-2 text-xs"
-            style={{ background: "#191919", border: "1px solid #2a2a2a", color: "#9ca3af" }}
-          >
-            {activeRestrictions.length} active
+          <div className="flex items-center gap-2">
+            {activeRestrictions.length > 0 && (
+              <button
+                type="button"
+                disabled={unbanningId !== null || busyKey !== null}
+                onClick={() => handleQuickUnban(activeRestrictions[0].id)}
+                className="rounded-lg px-3 py-2 text-xs font-semibold transition disabled:opacity-50"
+                style={{ background: "rgba(74,222,128,0.1)", border: "1px solid rgba(74,222,128,0.25)", color: "#86efac" }}
+              >
+                {unbanningId ? "Unbanning..." : "Unban player"}
+              </button>
+            )}
+            <div
+              className="rounded-lg px-3 py-2 text-xs"
+              style={{ background: "#191919", border: "1px solid #2a2a2a", color: "#9ca3af" }}
+            >
+              {activeRestrictions.length} active
+            </div>
           </div>
         </div>
 
@@ -465,6 +528,18 @@ export default function PlayerDetailPanel({
                       {sanction.deliveryDetails}
                     </p>
                   ) : null}
+
+                  {status === "Active" && (sanction.type === "BAN" || sanction.type === "TIMEOUT") && (
+                    <button
+                      type="button"
+                      disabled={unbanningId === sanction.id || busyKey !== null}
+                      onClick={() => handleQuickUnban(sanction.id)}
+                      className="mt-3 rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:opacity-50"
+                      style={{ background: "rgba(74,222,128,0.1)", border: "1px solid rgba(74,222,128,0.25)", color: "#86efac" }}
+                    >
+                      {unbanningId === sanction.id ? "Unbanning..." : sanction.type === "BAN" ? "Unban" : "Remove timeout"}
+                    </button>
+                  )}
                 </div>
               )
             })
