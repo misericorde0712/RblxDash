@@ -44,18 +44,12 @@ function formatDateTime(value: string) {
 }
 
 function formatReason(reason: string | null) {
-  if (!reason || reason.trim() === "") {
-    return "No reason provided"
-  }
-
+  if (!reason || reason.trim() === "") return "No reason provided"
   return reason
 }
 
 function getSanctionStatus(sanction: PlayerSanctionItem) {
-  if (sanction.type === "UNBAN") {
-    return "Lifted"
-  }
-
+  if (sanction.type === "UNBAN") return "Lifted"
   return isSanctionCurrentlyActive({
     active: sanction.active,
     expiresAt: sanction.expiresAt ? new Date(sanction.expiresAt) : null,
@@ -64,42 +58,39 @@ function getSanctionStatus(sanction: PlayerSanctionItem) {
     : "Inactive"
 }
 
-function getSanctionStatusClassName(status: string) {
+function getSanctionStatusStyle(status: string): { background: string; border: string; color: string } {
   if (status === "Active") {
-    return "border-red-900 bg-red-950/60 text-red-200"
+    return { background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", color: "#fca5a5" }
   }
-
   if (status === "Lifted") {
-    return "border-green-900 bg-green-950/60 text-green-200"
+    return { background: "rgba(74,222,128,0.08)", border: "1px solid rgba(74,222,128,0.2)", color: "#86efac" }
   }
-
-  return "border-gray-700 bg-gray-950 text-gray-300"
+  return { background: "rgba(156,163,175,0.08)", border: "1px solid rgba(156,163,175,0.15)", color: "#9ca3af" }
 }
 
 function getActionButtonLabel(type: SanctionType) {
   switch (type) {
-    case "KICK":
-      return "Send kick"
-    case "TIMEOUT":
-      return "Create timeout"
-    case "BAN":
-      return "Create ban"
-    case "UNBAN":
-      return "Lift restriction"
+    case "KICK": return "Send kick"
+    case "TIMEOUT": return "Create timeout"
+    case "BAN": return "Create ban"
+    case "UNBAN": return "Lift restriction"
   }
 }
 
-function getDeliveryStatusClassName(status: SanctionDeliveryStatus) {
+function getDeliveryStatusStyle(status: SanctionDeliveryStatus): { background: string; border: string; color: string } {
   if (status === "APPLIED") {
-    return "border-green-900 bg-green-950/60 text-green-200"
+    return { background: "rgba(74,222,128,0.08)", border: "1px solid rgba(74,222,128,0.2)", color: "#86efac" }
   }
-
   if (status === "FAILED") {
-    return "border-red-900 bg-red-950/60 text-red-200"
+    return { background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", color: "#fca5a5" }
   }
-
-  return "border-yellow-900 bg-yellow-950/60 text-yellow-200"
+  return { background: "rgba(250,204,21,0.08)", border: "1px solid rgba(250,204,21,0.2)", color: "#fde68a" }
 }
+
+const inputClass =
+  "w-full rounded-xl border px-3 py-2.5 text-sm text-white placeholder-[#555] outline-none transition-colors"
+const inputStyle = { background: "#252525", borderColor: "#333" }
+const focusStyle = { background: "#252525", borderColor: "#e8822a" }
 
 export default function PlayerDetailPanel({
   robloxId,
@@ -139,12 +130,8 @@ export default function PlayerDetailPanel({
     try {
       const response = await fetch(`/api/players/${robloxId}/notes`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          content: noteContent,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: noteContent }),
       })
       const data = await response.json()
 
@@ -164,9 +151,7 @@ export default function PlayerDetailPanel({
       ])
       setNoteContent("")
       setNotice("Note added")
-      startTransition(() => {
-        router.refresh()
-      })
+      startTransition(() => { router.refresh() })
     } catch {
       setError("Unable to add note")
     } finally {
@@ -183,9 +168,7 @@ export default function PlayerDetailPanel({
     try {
       const response = await fetch(`/api/players/${robloxId}/sanctions`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: sanctionType,
           reason: sanctionReason,
@@ -240,9 +223,7 @@ export default function PlayerDetailPanel({
         setDurationMinutes("30")
       }
       setNotice(`${formatSanctionType(sanctionType)} saved`)
-      startTransition(() => {
-        router.refresh()
-      })
+      startTransition(() => { router.refresh() })
     } catch {
       setError("Unable to update moderation")
     } finally {
@@ -253,26 +234,36 @@ export default function PlayerDetailPanel({
   return (
     <div className="space-y-6">
       {error ? (
-        <div className="rounded-xl border border-red-900 bg-red-950/60 px-4 py-3 text-sm text-red-300">
+        <div
+          className="rounded-xl px-4 py-3 text-sm"
+          style={{ background: "rgba(248,113,113,0.06)", border: "1px solid rgba(248,113,113,0.25)", color: "#fca5a5" }}
+        >
           {error}
         </div>
       ) : null}
 
       {notice ? (
-        <div className="rounded-xl border border-green-900 bg-green-950/60 px-4 py-3 text-sm text-green-300">
+        <div
+          className="rounded-xl px-4 py-3 text-sm"
+          style={{ background: "rgba(74,222,128,0.06)", border: "1px solid rgba(74,222,128,0.25)", color: "#86efac" }}
+        >
           {notice}
         </div>
       ) : null}
 
-      <section className="rounded-xl border border-gray-800 bg-gray-900 p-5">
+      {/* Moderation */}
+      <section className="rd-card p-5">
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
             <h2 className="text-base font-semibold text-white">Moderation</h2>
-            <p className="mt-1 text-sm text-gray-400">
+            <p className="mt-1 text-sm" style={{ color: "#9ca3af" }}>
               Kicks, timeouts, bans, and unbans sync back to the Roblox game.
             </p>
           </div>
-          <div className="rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-xs text-gray-300">
+          <div
+            className="rounded-lg px-3 py-2 text-xs"
+            style={{ background: "#191919", border: "1px solid #2a2a2a", color: "#9ca3af" }}
+          >
             {activeRestrictions.length} active
           </div>
         </div>
@@ -280,14 +271,15 @@ export default function PlayerDetailPanel({
         <form onSubmit={handleCreateSanction} className="space-y-4">
           <div className="grid gap-3 lg:grid-cols-[180px_minmax(0,1fr)]">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-300">
+              <label className="mb-1.5 block text-sm font-medium" style={{ color: "#d1d5db" }}>
                 Action
               </label>
               <select
                 value={sanctionType}
                 onChange={(event) => setSanctionType(event.target.value as SanctionType)}
                 disabled={busyKey !== null}
-                className="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white outline-none transition focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                className={inputClass}
+                style={inputStyle}
               >
                 {SANCTION_OPTIONS.map((type) => (
                   <option key={type} value={type}>
@@ -298,7 +290,7 @@ export default function PlayerDetailPanel({
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-300">
+              <label className="mb-1.5 block text-sm font-medium" style={{ color: "#d1d5db" }}>
                 Reason
               </label>
               <input
@@ -309,14 +301,17 @@ export default function PlayerDetailPanel({
                 disabled={busyKey !== null}
                 minLength={5}
                 placeholder="Explain clearly why this action is being applied"
-                className="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none transition focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                className={inputClass}
+                style={inputStyle}
+                onFocus={(e) => Object.assign(e.target.style, focusStyle)}
+                onBlur={(e) => Object.assign(e.target.style, inputStyle)}
               />
             </div>
           </div>
 
           {sanctionType === "TIMEOUT" || sanctionType === "BAN" ? (
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-300">
+              <label className="mb-1.5 block text-sm font-medium" style={{ color: "#d1d5db" }}>
                 {sanctionType === "TIMEOUT"
                   ? "Timeout duration in minutes"
                   : "Ban duration in minutes (leave empty for permanent)"}
@@ -330,7 +325,10 @@ export default function PlayerDetailPanel({
                 required={sanctionType === "TIMEOUT"}
                 disabled={busyKey !== null}
                 placeholder={sanctionType === "BAN" ? "Permanent" : "30"}
-                className="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none transition focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                className={inputClass}
+                style={inputStyle}
+                onFocus={(e) => Object.assign(e.target.style, focusStyle)}
+                onBlur={(e) => Object.assign(e.target.style, inputStyle)}
               />
             </div>
           ) : null}
@@ -338,7 +336,8 @@ export default function PlayerDetailPanel({
           <button
             type="submit"
             disabled={busyKey !== null}
-            className="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ background: "#e8822a" }}
           >
             {busyKey === "sanction"
               ? "Saving..."
@@ -347,7 +346,8 @@ export default function PlayerDetailPanel({
         </form>
       </section>
 
-      <section className="rounded-xl border border-gray-800 bg-gray-900 p-5">
+      {/* Notes */}
+      <section className="rd-card p-5">
         <h2 className="text-base font-semibold text-white">Notes</h2>
         <form onSubmit={handleCreateNote} className="mt-4 space-y-4">
           <textarea
@@ -357,12 +357,16 @@ export default function PlayerDetailPanel({
             rows={4}
             disabled={busyKey !== null}
             placeholder="Internal note visible to your team only"
-            className="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none transition focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            className={inputClass}
+            style={inputStyle}
+            onFocus={(e) => Object.assign(e.target.style, focusStyle)}
+            onBlur={(e) => Object.assign(e.target.style, inputStyle)}
           />
           <button
             type="submit"
             disabled={busyKey !== null}
-            className="rounded-lg border border-gray-700 px-4 py-2.5 text-sm font-semibold text-gray-200 transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ border: "1px solid #2a2a2a", color: "#d1d5db" }}
           >
             {busyKey === "note" ? "Saving..." : "Add note"}
           </button>
@@ -370,19 +374,20 @@ export default function PlayerDetailPanel({
 
         <div className="mt-5 space-y-3">
           {noteItems.length === 0 ? (
-            <p className="text-sm text-gray-500">
+            <p className="text-sm" style={{ color: "#666666" }}>
               No internal notes for this player yet.
             </p>
           ) : (
             noteItems.map((note) => (
               <div
                 key={note.id}
-                className="rounded-xl border border-gray-800 bg-gray-950/70 p-4"
+                className="rounded-xl p-4"
+                style={{ background: "#191919", border: "1px solid #2a2a2a" }}
               >
-                <p className="whitespace-pre-wrap text-sm text-gray-200">
+                <p className="whitespace-pre-wrap text-sm" style={{ color: "#d1d5db" }}>
                   {note.content}
                 </p>
-                <p className="mt-3 text-xs text-gray-500">
+                <p className="mt-3 text-xs" style={{ color: "#666666" }}>
                   {note.authorLabel} · {formatDateTime(note.createdAt)}
                 </p>
               </div>
@@ -391,47 +396,52 @@ export default function PlayerDetailPanel({
         </div>
       </section>
 
-      <section className="rounded-xl border border-gray-800 bg-gray-900 p-5">
+      {/* Sanction history */}
+      <section className="rd-card p-5">
         <h2 className="text-base font-semibold text-white">Sanction history</h2>
         <div className="mt-4 space-y-3">
           {sanctionItems.length === 0 ? (
-            <p className="text-sm text-gray-500">
+            <p className="text-sm" style={{ color: "#666666" }}>
               No moderation actions recorded for this player yet.
             </p>
           ) : (
             sanctionItems.map((sanction) => {
               const status = getSanctionStatus(sanction)
+              const statusStyle = getSanctionStatusStyle(status)
+              const deliveryStyle = getDeliveryStatusStyle(sanction.deliveryStatus)
 
               return (
                 <div
                   key={sanction.id}
-                  className="rounded-xl border border-gray-800 bg-gray-950/70 p-4"
+                  className="rounded-xl p-4"
+                  style={{ background: "#191919", border: "1px solid #2a2a2a" }}
                 >
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full border border-gray-700 px-2.5 py-1 text-xs text-gray-200">
+                    <span
+                      className="rounded-full px-2.5 py-1 text-xs"
+                      style={{ background: "rgba(156,163,175,0.08)", border: "1px solid rgba(156,163,175,0.15)", color: "#d1d5db" }}
+                    >
                       {formatSanctionType(sanction.type)}
                     </span>
                     <span
-                      className={`rounded-full border px-2.5 py-1 text-xs ${getSanctionStatusClassName(
-                        status
-                      )}`}
+                      className="rounded-full px-2.5 py-1 text-xs"
+                      style={statusStyle}
                     >
                       {status}
                     </span>
                     <span
-                      className={`rounded-full border px-2.5 py-1 text-xs ${getDeliveryStatusClassName(
-                        sanction.deliveryStatus
-                      )}`}
+                      className="rounded-full px-2.5 py-1 text-xs"
+                      style={deliveryStyle}
                     >
                       {formatSanctionDeliveryStatus(sanction.deliveryStatus)}
                     </span>
                   </div>
 
-                  <p className="mt-3 text-sm text-gray-200">
+                  <p className="mt-3 text-sm" style={{ color: "#d1d5db" }}>
                     {formatReason(sanction.reason)}
                   </p>
 
-                  <div className="mt-3 grid gap-2 text-xs text-gray-500 sm:grid-cols-2">
+                  <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2" style={{ color: "#666666" }}>
                     <p>By {sanction.moderator}</p>
                     <p>Window {formatSanctionWindow({
                       type: sanction.type,
@@ -451,7 +461,7 @@ export default function PlayerDetailPanel({
                     </p>
                   </div>
                   {sanction.deliveryDetails ? (
-                    <p className="mt-3 text-xs text-red-300">
+                    <p className="mt-3 text-xs" style={{ color: "#f87171" }}>
                       {sanction.deliveryDetails}
                     </p>
                   ) : null}
