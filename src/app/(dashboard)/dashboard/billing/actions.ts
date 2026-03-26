@@ -13,7 +13,7 @@ import {
   getPriceIdForPlan,
   stripe,
 } from "@/lib/stripe"
-import type { PaidPlan } from "@/lib/stripe"
+import type { PaidPlan, BillingInterval } from "@/lib/stripe"
 
 function getAppUrl(headersList: Awaited<ReturnType<typeof headers>>) {
   return getRequestOrigin({
@@ -46,7 +46,7 @@ export async function redirectToBillingPortal() {
   redirect(session.url)
 }
 
-export async function redirectToCheckout(plan: PaidPlan) {
+export async function redirectToCheckout(plan: PaidPlan, interval: BillingInterval = "monthly") {
   const clerkUser = await currentUser()
   if (!clerkUser) redirect("/login")
 
@@ -58,6 +58,27 @@ export async function redirectToCheckout(plan: PaidPlan) {
     subscription: accountSubscription,
     dbUser,
   })
+
+  const headersList = await headers()
+  const appUrl = getAppUrl(headersList)
+
+  const priceId = getPriceIdForPlan(plan, interval)
+
+  if (interval === "lifetime") {
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      customer: syncedSubscription.stripeCustomerId,
+      client_reference_id: dbUser.id,
+      line_items: [{ price: priceId, quantity: 1 }],
+      allow_promotion_codes: true,
+      metadata: { dbUserId: dbUser.id, source: "billing_page", plan, interval: "lifetime" },
+      success_url: `${appUrl}/dashboard/billing?success=1`,
+      cancel_url: `${appUrl}/dashboard/billing?canceled=1`,
+    })
+
+    if (!session.url) redirect("/dashboard/billing?canceled=1")
+    redirect(session.url)
+  }
 
   const planState = getPlanState({
     plan: accountSubscription?.plan,
@@ -79,18 +100,15 @@ export async function redirectToCheckout(plan: PaidPlan) {
       ? { trial_period_days: FREE_TRIAL_DAYS }
       : {}
 
-  const headersList = await headers()
-  const appUrl = getAppUrl(headersList)
-
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer: syncedSubscription.stripeCustomerId,
     client_reference_id: dbUser.id,
-    line_items: [{ price: getPriceIdForPlan(plan), quantity: 1 }],
+    line_items: [{ price: priceId, quantity: 1 }],
     allow_promotion_codes: true,
-    metadata: { dbUserId: dbUser.id, source: "billing_page", plan },
+    metadata: { dbUserId: dbUser.id, source: "billing_page", plan, interval },
     subscription_data: {
-      metadata: { dbUserId: dbUser.id, source: "billing_page", plan },
+      metadata: { dbUserId: dbUser.id, source: "billing_page", plan, interval },
       ...subscriptionTrialData,
     },
     success_url: `${appUrl}/dashboard/billing?success=1`,

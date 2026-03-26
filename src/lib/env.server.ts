@@ -8,6 +8,10 @@ const serverSchema = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().min(1, "STRIPE_WEBHOOK_SECRET is required"),
   STRIPE_PRICE_PRO: z.string().min(1, "STRIPE_PRICE_PRO is required"),
   STRIPE_PRICE_STUDIO: z.string().min(1, "STRIPE_PRICE_STUDIO is required"),
+  STRIPE_PRICE_PRO_YEARLY: z.string().optional(),
+  STRIPE_PRICE_STUDIO_YEARLY: z.string().optional(),
+  STRIPE_PRICE_PRO_LIFETIME: z.string().optional(),
+  STRIPE_PRICE_STUDIO_LIFETIME: z.string().optional(),
 
   // ─── Runtime ──────────────────────────────────────────────
   NODE_ENV: z

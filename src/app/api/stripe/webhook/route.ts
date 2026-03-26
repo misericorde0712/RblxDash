@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import type Stripe from "stripe"
-import { syncSubscriptionFromStripe } from "@/lib/billing"
-import { stripe } from "@/lib/stripe"
+import { syncSubscriptionFromStripe, ensureStripeCustomerForUser } from "@/lib/billing"
+import { stripe, isLifetimePriceId, getPlanFromPriceId } from "@/lib/stripe"
 import { sendTrialExpiryEmail, sendPaymentFailedEmail } from "@/lib/email"
 import { prisma } from "@/lib/prisma"
 import { createLogger } from "@/lib/logger"
@@ -100,6 +100,41 @@ export async function POST(req: NextRequest) {
       case "customer.subscription.paused": {
         const sub = event.data.object as Stripe.Subscription
         await syncSubscriptionFromStripe(sub)
+        break
+      }
+
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session
+        if (session.mode === "payment" && session.payment_status === "paid") {
+          const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 1 })
+          const priceId = lineItems.data[0]?.price?.id ?? null
+
+          if (isLifetimePriceId(priceId)) {
+            const plan = getPlanFromPriceId(priceId)
+            const userId = session.metadata?.dbUserId
+            const customerId = typeof session.customer === "string" ? session.customer : session.customer?.id
+
+            if (userId && customerId) {
+              await prisma.subscription.upsert({
+                where: { userId },
+                update: {
+                  stripeCustomerId: customerId,
+                  plan,
+                  status: "ACTIVE",
+                  currentPeriodEnd: null,
+                },
+                create: {
+                  userId,
+                  stripeCustomerId: customerId,
+                  plan,
+                  status: "ACTIVE",
+                  currentPeriodEnd: null,
+                },
+              })
+              log.info("Lifetime plan activated", { userId, plan })
+            }
+          }
+        }
         break
       }
 

@@ -4,13 +4,37 @@ import { requireCurrentOrg } from "@/lib/auth"
 import { getBillingUsageSummary } from "@/lib/billing"
 import { getPlanState } from "@/lib/stripe"
 import { redirectToBillingPortal, redirectToCheckout } from "./actions"
+import { BillingIntervalToggle } from "./billing-interval-toggle"
+import type { Interval } from "./billing-interval-toggle"
 
 // ─── Plan definitions ─────────────────────────────────────────────────────────
+
+type PlanPricing = {
+  monthly: string
+  yearly: string
+  yearlyPerMonth: string
+  lifetime: string
+}
+
+const PLAN_PRICING: Record<"PRO" | "STUDIO", PlanPricing> = {
+  PRO: {
+    monthly: "$12",
+    yearly: "$120",
+    yearlyPerMonth: "$10",
+    lifetime: "$149",
+  },
+  STUDIO: {
+    monthly: "$35",
+    yearly: "$350",
+    yearlyPerMonth: "$29.17",
+    lifetime: "$349",
+  },
+}
+
 const PLANS = [
   {
     id:    "FREE"   as const,
     name:  "Free",
-    price: null,
     desc:  "Get started with one game.",
     features: [
       "1 game",
@@ -26,7 +50,6 @@ const PLANS = [
   {
     id:        "PRO" as const,
     name:      "Pro",
-    price:     "15 CAD",
     highlight: true,
     desc:      "For active Roblox creators.",
     features: [
@@ -43,7 +66,6 @@ const PLANS = [
   {
     id:    "STUDIO" as const,
     name:  "Studio",
-    price: "40 CAD",
     desc:  "For teams and power users.",
     features: [
       "Unlimited games",
@@ -69,7 +91,7 @@ function FeatureRow({ text, included }: { text: string; included: boolean }) {
             : { background: "rgba(156,163,175,0.06)", color: "#444",    border: "1px solid #2a2a2a" }
         }
       >
-        {included ? "✓" : "—"}
+        {included ? "\u2713" : "\u2014"}
       </span>
       <span style={{ color: included ? "#ccc" : "#555" }}>{text}</span>
     </li>
@@ -101,6 +123,18 @@ function SectionTitle({ children }: { children: ReactNode }) {
   )
 }
 
+function getPriceDisplay(planId: "PRO" | "STUDIO", interval: Interval) {
+  const pricing = PLAN_PRICING[planId]
+  switch (interval) {
+    case "yearly":
+      return { main: pricing.yearlyPerMonth, suffix: "/mo", detail: `${pricing.yearly}/year` }
+    case "lifetime":
+      return { main: pricing.lifetime, suffix: "", detail: "one-time payment" }
+    default:
+      return { main: pricing.monthly, suffix: "/mo", detail: null }
+  }
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default async function BillingPage({
   searchParams,
@@ -126,13 +160,14 @@ export default async function BillingPage({
   const resolvedParams = (await searchParams) ?? {}
   const success  = resolvedParams?.success  === "1"
   const canceled = resolvedParams?.canceled === "1"
+  const interval = (resolvedParams?.interval as Interval) || "monthly"
 
   const currentPlan  = usage.effectivePlan
   const hasActivePlan = usage.hasActivePlan
   const isTrial       = planState?.isTrialActive ?? false
 
   function formatDate(d: Date | null | undefined) {
-    if (!d) return "–"
+    if (!d) return "\u2013"
     return new Intl.DateTimeFormat("en-CA", { month: "short", day: "numeric", year: "numeric" }).format(d)
   }
 
@@ -212,7 +247,7 @@ export default async function BillingPage({
                 className="rounded-xl border px-4 py-2 text-sm font-semibold transition-colors"
                 style={{ borderColor: "#333", background: "#252525", color: "#ccc" }}
               >
-                Manage subscription →
+                Manage subscription &rarr;
               </button>
             </form>
           )}
@@ -249,11 +284,15 @@ export default async function BillingPage({
         )}
       </div>
 
-      {/* ── Plan comparison ───────────────────────────────────────────────── */}
-      <SectionTitle>
-        {hasActivePlan ? "Your plan options" : "Choose a plan — 7-day free trial on all paid plans"}
-      </SectionTitle>
+      {/* ── Interval toggle ─────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <SectionTitle>
+          {hasActivePlan ? "Your plan options" : "Choose a plan — 7-day free trial on all paid plans"}
+        </SectionTitle>
+        <BillingIntervalToggle current={interval} />
+      </div>
 
+      {/* ── Plan comparison ───────────────────────────────────────────────── */}
       <div className="grid gap-4 lg:grid-cols-3">
         {PLANS.map((plan) => {
           const isCurrent    = currentPlan === plan.id
@@ -262,6 +301,9 @@ export default async function BillingPage({
             ...plan.features.map((f) => ({ text: f, included: true })),
             ...plan.missing.map((f)  => ({ text: f, included: false })),
           ]
+
+          const isPaid = plan.id === "PRO" || plan.id === "STUDIO"
+          const priceDisplay = isPaid ? getPriceDisplay(plan.id, interval) : null
 
           return (
             <div
@@ -296,12 +338,27 @@ export default async function BillingPage({
                       Popular
                     </span>
                   )}
+                  {isPaid && interval === "lifetime" && (
+                    <span
+                      className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+                      style={{ background: "rgba(168,85,247,0.1)", color: "#c084fc", border: "1px solid rgba(168,85,247,0.2)" }}
+                    >
+                      Lifetime
+                    </span>
+                  )}
                 </div>
-                {plan.price ? (
-                  <p className="text-2xl font-semibold text-white">
-                    {plan.price}
-                    <span className="text-sm font-normal ml-1" style={{ color: "#666" }}>/month</span>
-                  </p>
+                {priceDisplay ? (
+                  <div>
+                    <p className="text-2xl font-semibold text-white">
+                      {priceDisplay.main}
+                      {priceDisplay.suffix && (
+                        <span className="text-sm font-normal ml-1" style={{ color: "#666" }}>{priceDisplay.suffix}</span>
+                      )}
+                    </p>
+                    {priceDisplay.detail && (
+                      <p className="text-xs mt-0.5" style={{ color: "#666" }}>{priceDisplay.detail}</p>
+                    )}
+                  </div>
                 ) : (
                   <p className="text-2xl font-semibold text-white">Free</p>
                 )}
@@ -324,7 +381,6 @@ export default async function BillingPage({
                   Current plan
                 </div>
               ) : plan.id === "FREE" ? (
-                // Downgrade to free goes through portal
                 hasActivePlan ? (
                   <form action={redirectToBillingPortal}>
                     <button
@@ -343,9 +399,8 @@ export default async function BillingPage({
                     No subscription needed
                   </div>
                 )
-              ) : currentPlan === "FREE" ? (
-                // Start trial / checkout
-                plan.id === "PRO" ? (
+              ) : currentPlan === "FREE" && interval !== "lifetime" ? (
+                plan.id === "PRO" && interval === "monthly" ? (
                   <Link
                     href="/start-trial"
                     className="block w-full rounded-xl px-4 py-2.5 text-center text-sm font-semibold transition-colors"
@@ -354,18 +409,31 @@ export default async function BillingPage({
                     Start 7-day trial
                   </Link>
                 ) : (
-                  <form action={redirectToCheckout.bind(null, "STUDIO")}>
+                  <form action={redirectToCheckout.bind(null, plan.id as "PRO" | "STUDIO", interval)}>
                     <button
                       type="submit"
                       className="w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors"
-                      style={{ background: "#252525", border: "1px solid #333", color: "#ccc" }}
+                      style={
+                        plan.id === "PRO"
+                          ? { background: "#e8822a", color: "#fff" }
+                          : { background: "#252525", border: "1px solid #333", color: "#ccc" }
+                      }
                     >
-                      Try Studio free
+                      {interval === "yearly" ? `Start 7-day trial` : `Try ${plan.name} free`}
                     </button>
                   </form>
                 )
+              ) : interval === "lifetime" ? (
+                <form action={redirectToCheckout.bind(null, plan.id as "PRO" | "STUDIO", "lifetime")}>
+                  <button
+                    type="submit"
+                    className="w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors"
+                    style={{ background: "linear-gradient(135deg, #9333ea, #e8822a)", color: "#fff" }}
+                  >
+                    Buy lifetime access
+                  </button>
+                </form>
               ) : (
-                // Upgrade/change via portal
                 <form action={redirectToBillingPortal}>
                   <button
                     type="submit"
@@ -393,7 +461,7 @@ export default async function BillingPage({
         style={{ background: "#1e1e1e", border: "1px solid #2a2a2a" }}
       >
         <span style={{ color: "#888" }}>
-          All plans are billed in CAD. Payments are processed by Stripe.
+          All plans are billed in USD. Payments are processed by Stripe.
           For invoice questions, go to{" "}
           <Link href="/account" className="underline" style={{ color: "#e8822a" }}>
             your account

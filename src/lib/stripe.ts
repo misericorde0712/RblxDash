@@ -8,6 +8,7 @@ export const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
 })
 
 export type PaidPlan = Exclude<Plan, "FREE">
+export type BillingInterval = "monthly" | "yearly" | "lifetime"
 export const FREE_TRIAL_DAYS = 7
 const DAY_IN_MS = 1000 * 60 * 60 * 24
 
@@ -52,6 +53,61 @@ export const PLANS: Record<Plan, PlanConfig> = {
 export const STRIPE_PRICE_IDS: Record<PaidPlan, string | undefined> = {
   PRO: env.STRIPE_PRICE_PRO,
   STUDIO: env.STRIPE_PRICE_STUDIO,
+}
+
+export const STRIPE_YEARLY_PRICE_IDS: Record<PaidPlan, string | undefined> = {
+  PRO: env.STRIPE_PRICE_PRO_YEARLY,
+  STUDIO: env.STRIPE_PRICE_STUDIO_YEARLY,
+}
+
+export const STRIPE_LIFETIME_PRICE_IDS: Record<PaidPlan, string | undefined> = {
+  PRO: env.STRIPE_PRICE_PRO_LIFETIME,
+  STUDIO: env.STRIPE_PRICE_STUDIO_LIFETIME,
+}
+
+export function getPriceIdForPlan(plan: PaidPlan, interval: BillingInterval = "monthly") {
+  let priceId: string | undefined
+
+  switch (interval) {
+    case "yearly":
+      priceId = STRIPE_YEARLY_PRICE_IDS[plan]
+      break
+    case "lifetime":
+      priceId = STRIPE_LIFETIME_PRICE_IDS[plan]
+      break
+    default:
+      priceId = STRIPE_PRICE_IDS[plan]
+  }
+
+  if (!priceId) {
+    throw new Error(`Missing Stripe price ID for ${plan} (${interval})`)
+  }
+
+  return priceId
+}
+
+export function getPlanFromPriceId(priceId: string | null | undefined): Plan {
+  if (!priceId) return "FREE"
+
+  const allPriceIds: Array<{ plan: Plan; id: string | undefined }> = [
+    { plan: "PRO", id: STRIPE_PRICE_IDS.PRO },
+    { plan: "STUDIO", id: STRIPE_PRICE_IDS.STUDIO },
+    { plan: "PRO", id: STRIPE_YEARLY_PRICE_IDS.PRO },
+    { plan: "STUDIO", id: STRIPE_YEARLY_PRICE_IDS.STUDIO },
+    { plan: "PRO", id: STRIPE_LIFETIME_PRICE_IDS.PRO },
+    { plan: "STUDIO", id: STRIPE_LIFETIME_PRICE_IDS.STUDIO },
+  ]
+
+  for (const entry of allPriceIds) {
+    if (entry.id === priceId) return entry.plan
+  }
+
+  return "FREE"
+}
+
+export function isLifetimePriceId(priceId: string | null | undefined): boolean {
+  if (!priceId) return false
+  return priceId === STRIPE_LIFETIME_PRICE_IDS.PRO || priceId === STRIPE_LIFETIME_PRICE_IDS.STUDIO
 }
 
 export function getPlanState(
@@ -198,27 +254,9 @@ export function getOwnedOrganizationSummary(params: {
     maxOrganizations,
     ownedOrganizationsCount: params.ownedOrganizationsCount,
     canCreateOrganization:
-      // Always allow creating the first workspace (onboarding), even without a paid plan
       params.ownedOrganizationsCount === 0 ||
       (hasActivePlan &&
         (!Number.isFinite(maxOrganizations) ||
           params.ownedOrganizationsCount < maxOrganizations)),
   }
-}
-
-export function getPriceIdForPlan(plan: PaidPlan) {
-  const priceId = STRIPE_PRICE_IDS[plan]
-
-  if (!priceId) {
-    throw new Error(`Missing Stripe price ID for ${plan}`)
-  }
-
-  return priceId
-}
-
-export function getPlanFromPriceId(priceId: string | null | undefined): Plan {
-  if (!priceId) return "FREE"
-  if (priceId === STRIPE_PRICE_IDS.PRO) return "PRO"
-  if (priceId === STRIPE_PRICE_IDS.STUDIO) return "STUDIO"
-  return "FREE"
 }

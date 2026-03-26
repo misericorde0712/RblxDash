@@ -29,7 +29,7 @@ const COMPARISONS = [
   },
   {
     problem: "Expensive per-game pricing",
-    solution: "Simple plans: Pro at $15/mo for 3 games, Studio at $40/mo for unlimited",
+    solution: "Simple plans: Pro at $12/mo for 5 games, Studio at $35/mo for unlimited",
   },
 ]
 

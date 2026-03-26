@@ -90,8 +90,8 @@ export default function StartTrialClient() {
           >
             <p className="text-xs" style={{ color: "#888888" }}>After trial</p>
             <p className="mt-1 text-white">
-              <span className="text-2xl font-bold">$15</span>
-              <span className="text-sm" style={{ color: "#888888" }}> / mo CAD</span>
+              <span className="text-2xl font-bold">$12</span>
+              <span className="text-sm" style={{ color: "#888888" }}> / mo USD</span>
             </p>
           </div>
 

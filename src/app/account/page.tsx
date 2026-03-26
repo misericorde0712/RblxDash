@@ -10,8 +10,8 @@ import {
 import { AccountActions } from "./account-actions"
 
 const PLAN_PRICES = {
-  PRO: "15 CAD / month",
-  STUDIO: "40 CAD / month",
+  PRO: "$12 USD / month",
+  STUDIO: "$35 USD / month",
 } as const
 
 function formatDate(date: Date | null | undefined) {
