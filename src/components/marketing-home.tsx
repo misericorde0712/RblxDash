@@ -84,11 +84,32 @@ const FEATURES = [
       "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z",
   },
   {
+    title: "Live Config",
+    description:
+      "Change game settings in real time from the dashboard — no republish needed. Values update instantly via MessagingService.",
+    pathD:
+      "M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4",
+  },
+  {
+    title: "Live Events",
+    description:
+      "Schedule one-time, recurring, or always-on in-game events. Hourly, daily, weekly, monthly — with timezone support and custom data.",
+    pathD:
+      "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
+  },
+  {
+    title: "Instant updates",
+    description:
+      "Changes to configs and events are pushed to game servers instantly via Roblox MessagingService. No more waiting for the next poll.",
+    pathD:
+      "M13 10V3L4 14h7v7l9-11h-7z",
+  },
+  {
     title: "One-time setup",
     description:
       "Paste one script into ServerScriptService, set your webhook URL and secret. Done. No external dependencies.",
     pathD:
-      "M13 10V3L4 14h7v7l9-11h-7z",
+      "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4",
   },
   {
     title: "REST API",
@@ -422,6 +443,49 @@ export default async function MarketingHome() {
                 style={{
                   background:
                     "radial-gradient(circle, #e8822a, transparent 70%)",
+                }}
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* ── VIDEO DEMO ── */}
+        <section className="border-t py-24" style={{ borderColor: "#2a2a2a" }}>
+          <div className="mx-auto max-w-4xl px-6">
+            <div className="mb-10 text-center">
+              <p
+                className="text-xs font-bold uppercase tracking-widest mb-3"
+                style={{ color: "#e8822a" }}
+              >
+                Product demo
+              </p>
+              <h2 className="text-3xl font-semibold tracking-tight text-white">
+                See RblxDash in action
+              </h2>
+              <p className="mt-3 text-base" style={{ color: "#9ca3af" }}>
+                From setup to live metrics in under 10 minutes.
+              </p>
+            </div>
+            <div className="relative">
+              <div
+                className="relative overflow-hidden rounded-2xl border"
+                style={{ background: "#111111", borderColor: "#2a2a2a", aspectRatio: "16/9" }}
+              >
+                {/* Replace YOUTUBE_VIDEO_ID with your actual video ID */}
+                <iframe
+                  src="https://www.youtube.com/embed/YOUTUBE_VIDEO_ID"
+                  title="RblxDash Product Demo"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="absolute inset-0 h-full w-full"
+                  style={{ border: "none" }}
+                />
+              </div>
+              {/* Glow behind video */}
+              <div
+                className="absolute inset-0 -z-10 rounded-2xl opacity-15 blur-3xl"
+                style={{
+                  background: "radial-gradient(circle, #e8822a, transparent 70%)",
                 }}
               />
             </div>
