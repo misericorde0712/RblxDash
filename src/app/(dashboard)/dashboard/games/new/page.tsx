@@ -29,11 +29,11 @@ export default async function NewGamePage() {
   const canSubmit = canManageGames && usage.canCreateGame
   const blockingMessage = !canManageGames
     ? "Only admins and owners can add games to this workspace."
-    : !usage.hasActivePlan
-      ? "No active subscription. Open Account to start checkout before adding a game."
-      : !usage.canCreateGame
-        ? `Game limit reached (${usage.totalGamesCount}/${usage.maxGames}). Upgrade or remove a game first.`
-        : null
+    : !usage.canCreateGame
+      ? usage.effectivePlan === "FREE"
+        ? `Free plan limit reached (${usage.totalGamesCount}/${usage.maxGames}). Open Billing to upgrade or remove a game first.`
+        : `Game limit reached (${usage.totalGamesCount}/${usage.maxGames}). Upgrade or remove a game first.`
+      : null
 
   return (
     <div className="p-8">
@@ -66,16 +66,16 @@ export default async function NewGamePage() {
           </div>
         )}
 
-        {!usage.hasActivePlan && (
+        {!usage.canCreateGame && usage.effectivePlan === "FREE" && (
           <div
             className="mb-6 rounded-2xl px-4 py-3 text-sm"
             style={{ border: "1px solid rgba(234,179,8,0.25)", background: "rgba(234,179,8,0.06)", color: "#fef08a" }}
           >
-            No active subscription.{" "}
-            <Link href="/account" className="font-medium underline" style={{ color: "#fde047" }}>
-              Open Account
+            Free plan limit reached.{" "}
+            <Link href="/dashboard/billing" className="font-medium underline" style={{ color: "#fde047" }}>
+              Open Billing
             </Link>{" "}
-            to start checkout before connecting a game.
+            to upgrade before connecting another game.
           </div>
         )}
 

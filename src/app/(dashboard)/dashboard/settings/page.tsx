@@ -134,17 +134,17 @@ export default async function SettingsPage({
         <div className="rd-banner rd-banner-warning mb-6">
           {!ownedOrganizationSummary.hasActivePlan ? (
             <>
-              This account does not have an active plan yet. Start checkout in{" "}
-              <Link href="/account" className="font-medium text-white underline">
-                account
+              This account is currently on the Free plan. Upgrade in{" "}
+              <Link href="/dashboard/billing" className="font-medium text-white underline">
+                Billing
               </Link>{" "}
               before creating another workspace.
             </>
           ) : (
             <>
               You already use {ownedWorkspaceLimit} owned workspaces. Upgrade one of your existing workspaces in{" "}
-              <Link href="/account" className="font-medium text-white underline">
-                account
+              <Link href="/dashboard/billing" className="font-medium text-white underline">
+                Billing
               </Link>{" "}
               before creating another.
             </>
@@ -293,10 +293,10 @@ export default async function SettingsPage({
                 to unlock more workspaces.
               </p>
               <Link
-                href="/account"
+                href="/dashboard/billing"
                 className="rd-button-primary mt-4"
               >
-                Open account
+                Open Billing
               </Link>
             </div>
           )}

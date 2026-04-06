@@ -13,7 +13,7 @@ export const FREE_TRIAL_DAYS = 7
 const DAY_IN_MS = 1000 * 60 * 60 * 24
 
 export const PLAN_LABELS: Record<Plan, string> = {
-  FREE: "No active plan",
+  FREE: "Free",
   PRO: "Pro",
   STUDIO: "Studio",
 }
@@ -110,7 +110,7 @@ export function isLifetimePriceId(priceId: string | null | undefined): boolean {
   return priceId === STRIPE_LIFETIME_PRICE_IDS.PRO || priceId === STRIPE_LIFETIME_PRICE_IDS.STUDIO
 }
 
-export function getPlanState(
+function hasActivePaidBillingAccess(
   params: {
     plan: Plan | null | undefined
     createdAt?: Date | null
@@ -121,6 +121,40 @@ export function getPlanState(
 ) {
   const storedPlan = params.plan ?? "FREE"
 
+  if (storedPlan === "FREE") {
+    return false
+  }
+
+  if (params.status === "TRIALING") {
+    const trialEndsAt =
+      params.currentPeriodEnd ??
+      new Date((params.createdAt ?? referenceDate).getTime() + FREE_TRIAL_DAYS * DAY_IN_MS)
+
+    return trialEndsAt.getTime() > referenceDate.getTime()
+  }
+
+  if (!params.status || params.status === "ACTIVE") {
+    return true
+  }
+
+  return Boolean(
+    params.currentPeriodEnd &&
+      params.currentPeriodEnd.getTime() > referenceDate.getTime()
+  )
+}
+
+export function getPlanState(
+  params: {
+    plan: Plan | null | undefined
+    createdAt?: Date | null
+    status?: SubscriptionStatus | null
+    currentPeriodEnd?: Date | null
+  },
+  referenceDate = new Date()
+) {
+  const storedPlan = params.plan ?? "FREE"
+  const hasPaidAccess = hasActivePaidBillingAccess(params, referenceDate)
+
   if (storedPlan !== "FREE" && params.status === "TRIALING") {
     const trialEndsAt =
       params.currentPeriodEnd ??
@@ -130,18 +164,18 @@ export function getPlanState(
 
     return {
       storedPlan,
-      effectivePlan: storedPlan,
+      effectivePlan: isTrialActive ? storedPlan : ("FREE" as const),
       isTrialActive,
       isTrialExpired: !isTrialActive,
       trialEndsAt,
       trialDaysRemaining: isTrialActive
         ? Math.ceil(millisecondsRemaining / DAY_IN_MS)
         : 0,
-      displayLabel: isTrialActive ? "Trial" : PLAN_LABELS[storedPlan],
+      displayLabel: isTrialActive ? "Trial" : PLAN_LABELS.FREE,
     }
   }
 
-  if (storedPlan !== "FREE") {
+  if (storedPlan !== "FREE" && hasPaidAccess) {
     return {
       storedPlan,
       effectivePlan: storedPlan,
@@ -173,24 +207,7 @@ export function hasActiveBillingAccess(
   },
   referenceDate = new Date()
 ) {
-  const planState = getPlanState(params, referenceDate)
-
-  if (planState.isTrialActive) {
-    return true
-  }
-
-  if (planState.storedPlan === "FREE") {
-    return false
-  }
-
-  if (!params.status || params.status === "ACTIVE") {
-    return true
-  }
-
-  return Boolean(
-    params.currentPeriodEnd &&
-      params.currentPeriodEnd.getTime() > referenceDate.getTime()
-  )
+  return hasActivePaidBillingAccess(params, referenceDate)
 }
 
 export function getPlanFromSubscription(sub: Subscription | null): PlanConfig {

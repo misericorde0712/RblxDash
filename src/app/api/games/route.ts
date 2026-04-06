@@ -88,8 +88,8 @@ export async function POST(req: NextRequest) {
     if (!usage.canCreateGame) {
       return NextResponse.json(
         {
-          error: !usage.hasActivePlan
-            ? "Open Account and start checkout before adding another game."
+          error: usage.effectivePlan === "FREE"
+            ? "Free plan limit reached. Open Billing to upgrade or remove an existing game before adding another."
             : `This billing account already uses ${usage.totalGamesCount} of ${usage.maxGames} game slot(s). Upgrade or remove a game before adding another.`,
         },
         { status: 403 }

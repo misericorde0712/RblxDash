@@ -120,11 +120,11 @@ export async function getBillingUsageSummary(params: {
     currentOrgGamesCount,
     ownedOrganizationsCount,
     availableModules: planConfig.modules,
-    canCreateGame:
-      hasActivePlan && hasCapacity(planConfig.maxGames, totalGamesCount),
-    canCreateOrganization:
-      hasActivePlan &&
-      hasCapacity(planConfig.maxOrganizations, ownedOrganizationsCount),
+    canCreateGame: hasCapacity(planConfig.maxGames, totalGamesCount),
+    canCreateOrganization: hasCapacity(
+      planConfig.maxOrganizations,
+      ownedOrganizationsCount
+    ),
     isOverGameLimit,
     isOverOrganizationLimit,
     isOverLimit: isOverGameLimit || isOverOrganizationLimit,

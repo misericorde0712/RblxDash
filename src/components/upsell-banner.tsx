@@ -62,7 +62,7 @@ export default function UpsellBanner({
         </p>
         <div className="mt-2 flex items-center gap-3">
           <Link
-            href="/account"
+            href="/dashboard/billing"
             className="rounded-lg px-3 py-1 text-xs font-medium text-white"
             style={{ background: "#e8822a" }}
           >

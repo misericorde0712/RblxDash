@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error: err.requiresPlan
-            ? "Open Account and start checkout before creating another workspace."
+            ? "Open Billing to upgrade before creating another workspace."
             : `Your account plan allows a maximum of ${err.maxOrganizations} owned workspace(s). Upgrade your account before creating another.`,
         },
         { status: 403 }

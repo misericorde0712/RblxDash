@@ -102,18 +102,18 @@ export default async function AccountPage({
       })
     : null
   const canStartRobloxOAuth = isRobloxOAuthConfigured()
-  const currentPlan = dbUser?.subscription?.plan ?? "FREE"
+  const currentPlan = usage?.effectivePlan ?? "FREE"
   const accountStateLabel = planState
     ? planState.isTrialActive
       ? `${planState.displayLabel} · ${planState.trialDaysRemaining} day${
           planState.trialDaysRemaining === 1 ? "" : "s"
         } left`
-      : planState.displayLabel
-    : "No billing yet"
+      : usage?.displayPlanLabel ?? planState.displayLabel
+    : usage?.displayPlanLabel ?? "Free"
   const accountStateCopy = planState?.isTrialActive
     ? `Your account unlocks ${PLAN_LABELS[planState.effectivePlan]} features until ${formatDate(planState.trialEndsAt)}.`
-    : planState?.storedPlan === "FREE"
-      ? "Start checkout to begin your 7-day trial and unlock games and workspaces."
+    : usage?.effectivePlan === "FREE"
+      ? "This account starts on the Free plan with 1 workspace and 1 game included. Upgrade anytime to unlock more capacity."
       : "Billing is active for this account."
 
   return (
@@ -399,9 +399,9 @@ export default async function AccountPage({
                 </span>
               </div>
 
-              {!usage?.hasActivePlan ? (
+              {usage?.effectivePlan === "FREE" ? (
                 <div className="rd-banner rd-banner-warning mt-5">
-                  This account does not have an active plan yet. Start checkout to begin the 7-day trial before adding games and workspaces.
+                  This account is currently on the Free plan. Upgrade to start a paid trial and unlock more games, workspaces, and features.
                 </div>
               ) : null}
 

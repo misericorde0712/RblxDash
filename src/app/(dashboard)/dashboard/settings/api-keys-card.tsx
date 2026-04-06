@@ -117,7 +117,7 @@ export default function ApiKeysCard({
         </div>
         <div className="rounded-xl border border-dashed border-[#3a3a3a] bg-[#1d1d1d] p-5">
           <p className="text-sm text-[#9ca3af]">API access is available on the Studio plan.</p>
-          <Link href="/account" className="rd-button-primary mt-4 inline-flex">
+          <Link href="/dashboard/billing" className="rd-button-primary mt-4 inline-flex">
             Upgrade to Studio
           </Link>
         </div>

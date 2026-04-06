@@ -165,6 +165,7 @@ export default async function BillingPage({
   const currentPlan  = usage.effectivePlan
   const hasActivePlan = usage.hasActivePlan
   const isTrial       = planState?.isTrialActive ?? false
+  const isFreePlan = currentPlan === "FREE"
 
   function formatDate(d: Date | null | undefined) {
     if (!d) return "\u2013"
@@ -219,7 +220,7 @@ export default async function BillingPage({
                   Trial — {planState!.trialDaysRemaining} day{planState!.trialDaysRemaining === 1 ? "" : "s"} left
                 </span>
               )}
-              {!hasActivePlan && (
+              {!hasActivePlan && !isFreePlan && (
                 <span
                   className="rounded-full px-2.5 py-0.5 text-xs font-semibold"
                   style={{ background: "rgba(156,163,175,0.08)", color: "#9ca3af", border: "1px solid #2a2a2a" }}
@@ -254,7 +255,7 @@ export default async function BillingPage({
         </div>
 
         {/* Usage */}
-        {hasActivePlan && (
+        {(hasActivePlan || isFreePlan) && (
           <div className="mt-5 grid gap-4 sm:grid-cols-2 border-t pt-5" style={{ borderColor: "#242424" }}>
             <div>
               <div className="flex items-center justify-between text-sm">
@@ -463,8 +464,8 @@ export default async function BillingPage({
         <span style={{ color: "#888" }}>
           All plans are billed in USD. Payments are processed by Stripe.
           For invoice questions, go to{" "}
-          <Link href="/account" className="underline" style={{ color: "#e8822a" }}>
-            your account
+          <Link href="/dashboard/billing" className="underline" style={{ color: "#e8822a" }}>
+            billing
           </Link>
           .
         </span>
