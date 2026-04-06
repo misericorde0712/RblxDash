@@ -31,7 +31,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const dbUser = await getDbUser(clerkUser.id)
+    const dbUser = await getDbUser(clerkUser)
     if (!dbUser) {
       return NextResponse.json(
         { error: "Complete onboarding before deleting organizations" },

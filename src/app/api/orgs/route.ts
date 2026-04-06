@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { currentUser } from "@clerk/nextjs/server"
 import type { Prisma } from "@prisma/client"
 import { z } from "zod"
-import { getCurrentOrgCookie } from "@/lib/auth"
+import { getCurrentOrgCookie, getDbUser } from "@/lib/auth"
 import { createAuditLog } from "@/lib/audit-log"
 import { prisma } from "@/lib/prisma"
 import { getOwnedOrganizationSummary } from "@/lib/stripe"
@@ -47,16 +47,10 @@ export async function POST(req: NextRequest) {
 
     const { name, slug } = parsed.data
 
-    // Find or create DB user
-    const dbUser = await prisma.user.upsert({
-      where: { clerkId: clerkUser.id },
-      update: {},
-      create: {
-        clerkId: clerkUser.id,
-        email: clerkUser.emailAddresses[0]?.emailAddress ?? "",
-        name: clerkUser.fullName ?? clerkUser.username ?? null,
-      },
-    })
+    const dbUser = await getDbUser(clerkUser)
+    if (!dbUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
 
     // Check slug uniqueness
     const existing = await prisma.organization.findUnique({ where: { slug } })

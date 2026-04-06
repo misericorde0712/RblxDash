@@ -29,7 +29,7 @@ async function resolveAuthenticatedUser() {
     return { error: "UNAUTHENTICATED" as const }
   }
 
-  const dbUser = await getDbUser(clerkUser.id)
+  const dbUser = await getDbUser(clerkUser)
   if (!dbUser) {
     return { error: "USER_NOT_FOUND" as const }
   }

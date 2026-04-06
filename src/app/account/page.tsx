@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { auth, currentUser } from "@clerk/nextjs/server"
 import { redirect } from "next/navigation"
+import { getDbUser } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { getBillingUsageSummary } from "@/lib/billing"
 import { getPlanState, PLAN_LABELS } from "@/lib/stripe"
@@ -48,18 +49,21 @@ export default async function AccountPage({
   }
 
   const clerkUser = await currentUser()
-  const dbUser = await prisma.user.findUnique({
-    where: { clerkId: userId },
-    include: {
-      subscription: true,
-      robloxConnection: true,
-      memberships: {
-        select: {
-          role: true,
+  const syncedDbUser = clerkUser ? await getDbUser(clerkUser) : null
+  const dbUser = syncedDbUser
+    ? await prisma.user.findUnique({
+        where: { id: syncedDbUser.id },
+        include: {
+          subscription: true,
+          robloxConnection: true,
+          memberships: {
+            select: {
+              role: true,
+            },
+          },
         },
-      },
-    },
-  })
+      })
+    : null
 
   const displayName =
     clerkUser?.fullName ??

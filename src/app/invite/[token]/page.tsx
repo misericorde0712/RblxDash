@@ -50,7 +50,7 @@ export default async function InvitePage({
     },
   })
   const clerkUser = await currentUser()
-  const dbUser = clerkUser ? await getDbUser(clerkUser.id) : null
+  const dbUser = clerkUser ? await getDbUser(clerkUser) : null
   const existingMembership =
     invite && dbUser
       ? await prisma.orgMember.findFirst({

@@ -77,26 +77,90 @@ export type CurrentOrgContext = {
 
 /**
  * Find the DB User row for the given Clerk ID.
- * Returns null if not found.
+ * When passed a full Clerk user, also repairs dev -> prod Clerk ID migrations.
  */
-export async function getDbUser(clerkId: string): Promise<User | null> {
-  return prisma.user.findUnique({ where: { clerkId } })
+function getPrimaryEmailAddress(clerkUser: AuthenticatedClerkUser) {
+  return clerkUser.emailAddresses[0]?.emailAddress ?? ""
+}
+
+function getDisplayName(clerkUser: AuthenticatedClerkUser) {
+  return clerkUser.fullName ?? clerkUser.username ?? null
+}
+
+export async function getDbUser(
+  clerkUserOrId: string | AuthenticatedClerkUser
+): Promise<User | null> {
+  if (typeof clerkUserOrId === "string") {
+    return prisma.user.findUnique({ where: { clerkId: clerkUserOrId } })
+  }
+
+  return upsertDbUserFromClerkUser(clerkUserOrId)
 }
 
 export async function upsertDbUserFromClerkUser(
   clerkUser: AuthenticatedClerkUser
 ): Promise<User> {
-  return prisma.user.upsert({
-    where: { clerkId: clerkUser.id },
-    update: {
-      email: clerkUser.emailAddresses[0]?.emailAddress ?? "",
-      name: clerkUser.fullName ?? clerkUser.username ?? null,
-    },
-    create: {
-      clerkId: clerkUser.id,
-      email: clerkUser.emailAddresses[0]?.emailAddress ?? "",
-      name: clerkUser.fullName ?? clerkUser.username ?? null,
-    },
+  const email = getPrimaryEmailAddress(clerkUser)
+  const name = getDisplayName(clerkUser)
+
+  return prisma.$transaction(async (tx) => {
+    const existingByClerkId = await tx.user.findUnique({
+      where: { clerkId: clerkUser.id },
+    })
+
+    if (existingByClerkId) {
+      let nextEmail = existingByClerkId.email
+
+      if (email && email !== existingByClerkId.email) {
+        const existingByEmail = await tx.user.findUnique({
+          where: { email },
+        })
+
+        if (!existingByEmail || existingByEmail.id === existingByClerkId.id) {
+          nextEmail = email
+        }
+      }
+
+      if (
+        nextEmail === existingByClerkId.email &&
+        name === existingByClerkId.name
+      ) {
+        return existingByClerkId
+      }
+
+      return tx.user.update({
+        where: { id: existingByClerkId.id },
+        data: {
+          email: nextEmail,
+          name,
+        },
+      })
+    }
+
+    if (email) {
+      const existingByEmail = await tx.user.findUnique({
+        where: { email },
+      })
+
+      if (existingByEmail) {
+        return tx.user.update({
+          where: { id: existingByEmail.id },
+          data: {
+            clerkId: clerkUser.id,
+            email,
+            name,
+          },
+        })
+      }
+    }
+
+    return tx.user.create({
+      data: {
+        clerkId: clerkUser.id,
+        email,
+        name,
+      },
+    })
   })
 }
 
@@ -271,9 +335,7 @@ export async function getCurrentOrg(
 ): Promise<CurrentOrgContext> {
   const clerkUser = await getAuthenticatedClerkUser()
 
-  const dbUser = await prisma.user.findUnique({
-    where: { clerkId: clerkUser.id },
-  })
+  const dbUser = await getDbUser(clerkUser)
 
   if (!dbUser) {
     throw new CurrentOrgError("USER_NOT_FOUND", "/onboarding")
@@ -434,9 +496,7 @@ export async function requireOrgMember(
 ): Promise<{ dbUser: User; member: OrgMember }> {
   const clerkUser = await requireAuth()
 
-  const dbUser = await prisma.user.findUnique({
-    where: { clerkId: clerkUser.id },
-  })
+  const dbUser = await getDbUser(clerkUser)
 
   if (!dbUser) redirect("/onboarding")
 

@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { currentUser } from "@clerk/nextjs/server"
+import { getDbUser } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { hasActiveBillingAccess } from "@/lib/stripe"
 import FaqAccordion from "./faq-accordion"
@@ -160,25 +161,26 @@ const FAQ_ITEMS = [
 
 export default async function MarketingHome() {
   const clerkUser = await currentUser()
-  const dbUser = clerkUser
+  const syncedDbUser = clerkUser ? await getDbUser(clerkUser) : null
+  const dbUser = syncedDbUser
     ? await prisma.user.findUnique({
-      where: { clerkId: clerkUser.id },
-      select: {
-        id: true,
-        subscription: {
-          select: {
-            plan: true,
-            createdAt: true,
-            status: true,
-            currentPeriodEnd: true,
+        where: { id: syncedDbUser.id },
+        select: {
+          id: true,
+          subscription: {
+            select: {
+              plan: true,
+              createdAt: true,
+              status: true,
+              currentPeriodEnd: true,
+            },
+          },
+          memberships: {
+            select: { id: true },
+            take: 1,
           },
         },
-        memberships: {
-          select: { id: true },
-          take: 1,
-        },
-      },
-    })
+      })
     : null
 
   const hasWorkspace = Boolean(dbUser?.memberships.length)

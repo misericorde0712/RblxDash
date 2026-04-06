@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const dbUser = await getDbUser(clerkUser.id)
+    const dbUser = await getDbUser(clerkUser)
     if (!dbUser) {
       return NextResponse.json(
         { error: "Complete onboarding before switching organizations" },
