@@ -79,16 +79,16 @@ export type CurrentOrgContext = {
  * Find the DB User row for the given Clerk ID.
  * When passed a full Clerk user, also repairs dev -> prod Clerk ID migrations.
  */
-function getPrimaryEmailAddress(clerkUser: AuthenticatedClerkUser) {
+function getPrimaryEmailAddress(clerkUser: AuthenticatedUser) {
   return clerkUser.emailAddresses[0]?.emailAddress ?? ""
 }
 
-function getDisplayName(clerkUser: AuthenticatedClerkUser) {
+function getDisplayName(clerkUser: AuthenticatedUser) {
   return clerkUser.fullName ?? clerkUser.username ?? null
 }
 
 export async function getDbUser(
-  clerkUserOrId: string | AuthenticatedClerkUser
+  clerkUserOrId: string | AuthenticatedUser
 ): Promise<User | null> {
   if (typeof clerkUserOrId === "string") {
     return prisma.user.findUnique({ where: { clerkId: clerkUserOrId } })

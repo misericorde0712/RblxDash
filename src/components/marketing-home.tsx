@@ -1,7 +1,6 @@
 import Link from "next/link"
 import { getDbUser } from "@/lib/auth"
 import { currentUser } from "@/lib/auth-provider/server"
-import { getDbUser } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import {
   isManagedBillingEnabled,
