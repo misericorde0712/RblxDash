@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import type Stripe from "stripe"
 import { syncSubscriptionFromStripe, ensureStripeCustomerForUser } from "@/lib/billing"
+import { isStripeWebhookConfigured } from "@/lib/deployment-mode"
 import { stripe, isLifetimePriceId, getPlanFromPriceId } from "@/lib/stripe"
 import { sendTrialExpiryEmail, sendPaymentFailedEmail } from "@/lib/email"
 import { prisma } from "@/lib/prisma"
@@ -12,7 +13,7 @@ export async function POST(req: NextRequest) {
   const signature = req.headers.get("stripe-signature")
 
   const { env } = await import("@/lib/env.server")
-  if (!signature || !env.STRIPE_WEBHOOK_SECRET) {
+  if (!signature || !isStripeWebhookConfigured() || !env.STRIPE_WEBHOOK_SECRET) {
     return NextResponse.json(
       { error: "Missing Stripe webhook configuration" },
       { status: 400 }

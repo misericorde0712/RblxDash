@@ -1,16 +1,32 @@
+import type { Metadata } from "next"
 import { requireCurrentOrg } from "@/lib/auth"
+import { isSelfHostedMode } from "@/lib/deployment-mode"
+import { NO_INDEX_ROBOTS } from "@/lib/seo"
 import { getPlanState } from "@/lib/stripe"
 import SidebarShell from "./sidebar-shell"
 import CurrentGameAlert from "./current-game-alert"
+
+export const metadata: Metadata = {
+  robots: NO_INDEX_ROBOTS,
+}
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const { org, currentGame, availableGames, billingSubscription } =
+  const { org, currentGame, availableGames, billingSubscription, dbUser } =
     await requireCurrentOrg()
   const currentGameLabel = currentGame?.name ?? "Overview"
+  const accountLabel = dbUser.name ?? dbUser.email
+  const accountInitials =
+    accountLabel
+      .split(/[\s@._-]+/)
+      .filter(Boolean)
+      .map((part) => part[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "RD"
 
   const planState = getPlanState({
     plan: billingSubscription?.plan,
@@ -34,6 +50,9 @@ export default async function DashboardLayout({
       planLabel={planState.displayLabel}
       isTrialActive={planState.isTrialActive}
       trialDaysRemaining={planState.trialDaysRemaining}
+      authMode={isSelfHostedMode() ? "local" : "clerk"}
+      accountLabel={accountLabel}
+      accountInitials={accountInitials}
     >
       {currentGame ? (
         <CurrentGameAlert gameId={currentGame.id} gameName={currentGame.name} />

@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 
+process.env.DATABASE_URL ??= "postgresql://test"
+process.env.CLERK_SECRET_KEY ??= "sk_test_x"
+
 // Mock all middleware dependencies
 const mockCheckRateLimit = vi.fn().mockResolvedValue({ limited: false, remaining: 100, resetAt: Date.now() + 60000 })
 vi.mock("@/lib/rate-limit", () => ({

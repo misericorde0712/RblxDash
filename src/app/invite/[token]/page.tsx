@@ -1,9 +1,17 @@
 import Link from "next/link"
-import { currentUser } from "@clerk/nextjs/server"
+import type { Metadata } from "next"
+import { currentUser } from "@/lib/auth-provider/server"
 import { getDbUser } from "@/lib/auth"
 import { isOrgInviteExpired, normalizeInviteEmail } from "@/lib/org-invites"
 import { formatOrgRole } from "@/lib/org-members"
 import { prisma } from "@/lib/prisma"
+import { NO_INDEX_ROBOTS } from "@/lib/seo"
+
+export const metadata: Metadata = {
+  title: "Workspace Invite",
+  description: "Private workspace invitation flow for RblxDash.",
+  robots: NO_INDEX_ROBOTS,
+}
 
 function buildAuthHref(pathname: string, token: string) {
   return `${pathname}?redirect_url=${encodeURIComponent(`/invite/${token}`)}`

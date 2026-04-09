@@ -1,10 +1,33 @@
 import Stripe from "stripe"
 import type { Subscription, Plan, SubscriptionStatus } from "@prisma/client"
 import type { ModuleId } from "@/types"
+import {
+  getManagedBillingDisabledReason,
+  getSelfHostedPlan,
+  isSelfHostedMode,
+} from "@/lib/deployment-mode"
 import { env } from "@/lib/env.server"
 
-export const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
-  apiVersion: "2026-02-25.clover",
+let stripeClient: Stripe | null = null
+
+function getStripeClient() {
+  if (!env.STRIPE_SECRET_KEY) {
+    throw new Error(getManagedBillingDisabledReason())
+  }
+
+  if (!stripeClient) {
+    stripeClient = new Stripe(env.STRIPE_SECRET_KEY, {
+      apiVersion: "2026-02-25.clover",
+    })
+  }
+
+  return stripeClient
+}
+
+export const stripe = new Proxy({} as Stripe, {
+  get(_target, prop, receiver) {
+    return Reflect.get(getStripeClient(), prop, receiver)
+  },
 })
 
 export type PaidPlan = Exclude<Plan, "FREE">
@@ -65,6 +88,18 @@ export const STRIPE_LIFETIME_PRICE_IDS: Record<PaidPlan, string | undefined> = {
   STUDIO: env.STRIPE_PRICE_STUDIO_LIFETIME,
 }
 
+function getSelfHostedPlanOverride(): Plan | null {
+  return isSelfHostedMode() ? getSelfHostedPlan() : null
+}
+
+function getDisplayLabel(plan: Plan) {
+  if (isSelfHostedMode()) {
+    return `${PLAN_LABELS[plan]} (Self-hosted)`
+  }
+
+  return PLAN_LABELS[plan]
+}
+
 export function getPriceIdForPlan(plan: PaidPlan, interval: BillingInterval = "monthly") {
   let priceId: string | undefined
 
@@ -119,6 +154,12 @@ function hasActivePaidBillingAccess(
   },
   referenceDate = new Date()
 ) {
+  const selfHostedPlan = getSelfHostedPlanOverride()
+
+  if (selfHostedPlan) {
+    return selfHostedPlan !== "FREE"
+  }
+
   const storedPlan = params.plan ?? "FREE"
 
   if (storedPlan === "FREE") {
@@ -152,6 +193,20 @@ export function getPlanState(
   },
   referenceDate = new Date()
 ) {
+  const selfHostedPlan = getSelfHostedPlanOverride()
+
+  if (selfHostedPlan) {
+    return {
+      storedPlan: selfHostedPlan,
+      effectivePlan: selfHostedPlan,
+      isTrialActive: false,
+      isTrialExpired: false,
+      trialEndsAt: null,
+      trialDaysRemaining: 0,
+      displayLabel: getDisplayLabel(selfHostedPlan),
+    }
+  }
+
   const storedPlan = params.plan ?? "FREE"
   const hasPaidAccess = hasActivePaidBillingAccess(params, referenceDate)
 
@@ -183,7 +238,7 @@ export function getPlanState(
       isTrialExpired: false,
       trialEndsAt: null,
       trialDaysRemaining: 0,
-      displayLabel: PLAN_LABELS[storedPlan],
+      displayLabel: getDisplayLabel(storedPlan),
     }
   }
 
@@ -194,7 +249,7 @@ export function getPlanState(
     isTrialExpired: false,
     trialEndsAt: null,
     trialDaysRemaining: 0,
-    displayLabel: PLAN_LABELS.FREE,
+    displayLabel: getDisplayLabel("FREE"),
   }
 }
 
@@ -230,6 +285,11 @@ const PLAN_WEIGHT: Record<Plan, number> = {
 export function getHighestPlan(
   plans: Array<Plan | null | undefined>
 ): Plan {
+  const selfHostedPlan = getSelfHostedPlanOverride()
+  if (selfHostedPlan) {
+    return selfHostedPlan
+  }
+
   return plans.reduce<Plan>((highestPlan, candidatePlan) => {
     const resolvedPlan = candidatePlan ?? "FREE"
 

@@ -1,11 +1,12 @@
 "use server"
 
-import { currentUser } from "@clerk/nextjs/server"
+import { currentUser } from "@/lib/auth-provider/server"
 import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { upsertDbUserFromClerkUser } from "@/lib/auth"
 import { ensureStripeCustomerForUser } from "@/lib/billing"
+import { isManagedBillingEnabled } from "@/lib/deployment-mode"
 import { getRequestOrigin } from "@/lib/request-url"
 import {
   FREE_TRIAL_DAYS,
@@ -15,6 +16,10 @@ import {
 } from "@/lib/stripe"
 
 export async function createCheckoutSession() {
+  if (!isManagedBillingEnabled()) {
+    redirect("/account?billing=disabled")
+  }
+
   const clerkUser = await currentUser()
   if (!clerkUser) {
     redirect("/sign-up?redirect_url=/start-trial")

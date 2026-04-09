@@ -1,4 +1,18 @@
+import {
+  getManagedBillingDisabledReason,
+  isManagedBillingEnabled,
+  isSelfHostedMode,
+} from "@/lib/deployment-mode"
 import { prisma } from "@/lib/prisma"
+import { createPageMetadata } from "@/lib/seo"
+
+export const metadata = createPageMetadata({
+  title: "System Status",
+  description:
+    "Check the live operational status of the RblxDash application, database, webhook endpoint, billing, and authentication services.",
+  path: "/status",
+  keywords: ["RblxDash status", "RblxDash uptime", "RblxDash system status"],
+})
 
 async function checkDatabase(): Promise<{ ok: boolean; latencyMs: number }> {
   const start = Date.now()
@@ -61,6 +75,8 @@ function Row({
 export default async function StatusPage() {
   const db = await checkDatabase()
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://rblxdash.com"
+  const selfHostedMode = isSelfHostedMode()
+  const managedBillingEnabled = isManagedBillingEnabled()
 
   const allOk = db.ok
 
@@ -116,13 +132,23 @@ export default async function StatusPage() {
           />
           <Row
             label="Billing (Stripe)"
-            ok={true}
-            detail="External — check status.stripe.com"
+            ok={selfHostedMode || managedBillingEnabled}
+            detail={
+              selfHostedMode
+                ? getManagedBillingDisabledReason()
+                : managedBillingEnabled
+                  ? "External — check status.stripe.com"
+                  : "Stripe is not configured on this deployment"
+            }
           />
           <Row
-            label="Authentication (Clerk)"
+            label={selfHostedMode ? "Authentication (Local)" : "Authentication (Clerk)"}
             ok={true}
-            detail="External — check clerkstatus.com"
+            detail={
+              selfHostedMode
+                ? "Built-in email/password auth"
+                : "External — check clerkstatus.com"
+            }
           />
         </div>
 

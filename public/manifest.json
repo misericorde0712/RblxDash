@@ -1,20 +1,23 @@
 {
   "name": "RblxDash",
   "short_name": "RblxDash",
-  "description": "Game operations dashboard for Roblox studios",
+  "description": "Open source game operations dashboard for Roblox studios",
+  "lang": "en",
   "start_url": "/dashboard",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#1a1a1a",
   "theme_color": "#e8822a",
+  "categories": ["business", "productivity", "developer"],
   "icons": [
     {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
+      "src": "/icon",
+      "sizes": "512x512",
       "type": "image/png"
     },
     {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
+      "src": "/apple-icon",
+      "sizes": "180x180",
       "type": "image/png"
     }
   ]

@@ -21,8 +21,8 @@ Open-source game operations dashboard for Roblox studios. Live metrics, player a
 | Framework | Next.js 16 (App Router) |
 | Language | TypeScript (strict) |
 | Database | PostgreSQL + Prisma ORM |
-| Auth | Clerk |
-| Payments | Stripe |
+| Auth | Local auth for self-host, Clerk for hosted mode |
+| Payments | Stripe (optional) |
 | Charts | Recharts |
 | Styling | Tailwind CSS v4 |
 | Email | Resend |
@@ -34,8 +34,9 @@ Open-source game operations dashboard for Roblox studios. Live metrics, player a
 
 - Node.js >= 20
 - PostgreSQL database
-- [Clerk](https://clerk.com) account
-- [Stripe](https://stripe.com) account (for billing)
+- `LOCAL_AUTH_SECRET` for self-hosted local auth
+- [Clerk](https://clerk.com) account (optional unless you want hosted auth)
+- [Stripe](https://stripe.com) account (optional, only for billing)
 
 ### 1. Clone & install
 
@@ -52,6 +53,8 @@ cp .env.example .env
 ```
 
 Edit `.env` with your own credentials. Each variable is documented in the file. For encryption keys, use the generation commands in the comments.
+For production, set `NEXT_PUBLIC_APP_URL=https://rblxdash.com`.
+For self-hosting, keep `SELF_HOSTED=true`, set `LOCAL_AUTH_SECRET`, then create your first account at `/register`.
 
 ### 3. Set up the database
 
@@ -86,9 +89,22 @@ Open [http://localhost:3000](http://localhost:3000).
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run db:seed` | Seed database with demo data |
 
+## Documentation
+
+- Main docs index: [`docs/README.md`](docs/README.md)
+- Self-hosting guide: [`docs/self-hosting.md`](docs/self-hosting.md)
+- Roblox example files: [`examples/roblox-demo/README.md`](examples/roblox-demo/README.md)
+
 ## Project Structure
 
 ```
+docs/
+├── community/            # Community-facing launch and forum copy
+├── creator-kit/          # Demo, tutorial, and marketing support docs
+├── planning/             # Product and implementation planning docs
+└── testing/              # Manual validation checklists
+examples/
+└── roblox-demo/          # Example Luau files for Roblox Studio
 src/
 ├── app/
 │   ├── (auth)/           # Auth pages (sign-in, sign-up)
@@ -132,11 +148,14 @@ prisma/
 RblxDash is designed to be self-hosted. You need:
 
 1. A PostgreSQL database (e.g., [Neon](https://neon.tech), [Supabase](https://supabase.com), or your own)
-2. A Clerk application for authentication
-3. A Stripe account if you want billing (optional for self-hosting)
-4. Any Node.js hosting (Vercel, Railway, VPS, etc.)
+2. A `LOCAL_AUTH_SECRET` for the built-in self-host auth flow
+3. A Clerk application only if you want hosted Clerk auth instead of local auth
+4. A Stripe account if you want billing (optional for self-hosting)
+5. Any Node.js hosting (Vercel, Railway, VPS, etc.)
 
 Set all environment variables from `.env.example` and deploy.
+
+For the simplest deployment path, use [`docs/self-hosting.md`](docs/self-hosting.md). The repository now includes `Dockerfile`, `docker-compose.yml`, a `SELF_HOSTED=true` mode, built-in local auth, and a path that works without Stripe or Clerk.
 
 ## Contributing
 

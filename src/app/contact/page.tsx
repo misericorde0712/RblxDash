@@ -1,10 +1,18 @@
 import Link from "next/link"
-import type { Metadata } from "next"
+import { createPageMetadata } from "@/lib/seo"
 
-export const metadata: Metadata = {
+export const metadata = createPageMetadata({
   title: "Contact & Support",
-  description: "Get help with RblxDash — contact the team or report a bug.",
-}
+  description:
+    "Contact the RblxDash team for billing, support, security issues, or open source bug reports.",
+  path: "/contact",
+  keywords: [
+    "RblxDash support",
+    "contact RblxDash",
+    "Roblox SaaS support",
+    "RblxDash help",
+  ],
+})
 
 export default function ContactPage() {
   return (
@@ -67,7 +75,7 @@ export default function ContactPage() {
                   Bug reports, feature requests, and open source contributions. Public and transparent.
                 </p>
                 <a
-                  href="https://github.com/desgagneweb/rblxdash/issues"
+                  href="https://github.com/misericorde0712/RblxDash/issues"
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{ fontSize: "14px", color: "#e8822a", textDecoration: "none", fontWeight: 500 }}
@@ -110,7 +118,7 @@ export default function ContactPage() {
             <strong style={{ color: "#9ca3af" }}>Response times:</strong> Email support is handled by the core team — expect a reply within 1–2 business days.
             For urgent billing issues, mention it in the subject line.
             For security vulnerabilities, see our{" "}
-            <a href="https://github.com/desgagneweb/rblxdash/blob/main/SECURITY.md" target="_blank" rel="noopener noreferrer" style={{ color: "#e8822a" }}>
+            <a href="https://github.com/misericorde0712/RblxDash/blob/main/SECURITY.md" target="_blank" rel="noopener noreferrer" style={{ color: "#e8822a" }}>
               security policy
             </a>
             .

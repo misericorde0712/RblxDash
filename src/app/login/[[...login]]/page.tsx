@@ -1,4 +1,12 @@
+import { createPageMetadata } from "@/lib/seo"
 import { redirect } from "next/navigation"
+
+export const metadata = createPageMetadata({
+  title: "Login",
+  description: "Redirecting to the private RblxDash sign-in flow.",
+  path: "/login",
+  noIndex: true,
+})
 
 export default async function LoginPage({
   searchParams,

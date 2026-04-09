@@ -1,7 +1,12 @@
 import Link from "next/link"
-import { currentUser } from "@clerk/nextjs/server"
+import { getDbUser } from "@/lib/auth"
+import { currentUser } from "@/lib/auth-provider/server"
 import { getDbUser } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import {
+  isManagedBillingEnabled,
+  isSelfHostedMode,
+} from "@/lib/deployment-mode"
 import { hasActiveBillingAccess } from "@/lib/stripe"
 import FaqAccordion from "./faq-accordion"
 
@@ -160,6 +165,8 @@ const FAQ_ITEMS = [
 ]
 
 export default async function MarketingHome() {
+  const managedBillingEnabled = isManagedBillingEnabled()
+  const selfHostedMode = isSelfHostedMode()
   const clerkUser = await currentUser()
   const syncedDbUser = clerkUser ? await getDbUser(clerkUser) : null
   const dbUser = syncedDbUser
@@ -826,10 +833,14 @@ export default async function MarketingHome() {
                 Pricing
               </p>
               <h2 className="text-3xl font-semibold tracking-tight text-white">
-                Simple pricing
+                {managedBillingEnabled ? "Simple pricing" : "Self-hosted edition"}
               </h2>
               <p className="mt-3 text-base" style={{ color: "#9ca3af" }}>
-                All plans include a 7-day free trial.
+                {managedBillingEnabled
+                  ? "All plans include a 7-day free trial."
+                  : selfHostedMode
+                    ? "This deployment runs in self-host mode. Hosted checkout is disabled here."
+                    : "Hosted billing is not configured on this deployment."}
               </p>
             </div>
             <div className="grid gap-4 md:grid-cols-3">
@@ -894,13 +905,23 @@ export default async function MarketingHome() {
                       </li>
                     ))}
                   </ul>
-                  <Link
-                    href={plan.cta.href}
-                    className={`mt-6 block w-full text-center text-sm font-medium rounded-lg py-2.5 transition-colors ${plan.cta.primary ? "rd-button-primary" : "rd-button-secondary"
-                      }`}
-                  >
-                    {plan.cta.label}
-                  </Link>
+                  {managedBillingEnabled ? (
+                    <Link
+                      href={plan.cta.href}
+                      className={`mt-6 block w-full text-center text-sm font-medium rounded-lg py-2.5 transition-colors ${plan.cta.primary ? "rd-button-primary" : "rd-button-secondary"
+                        }`}
+                    >
+                      {plan.cta.label}
+                    </Link>
+                  ) : (
+                    <Link
+                      href={primaryCta.href}
+                      className={`mt-6 block w-full text-center text-sm font-medium rounded-lg py-2.5 transition-colors ${plan.highlighted ? "rd-button-primary" : "rd-button-secondary"
+                        }`}
+                    >
+                      {hasWorkspace ? "Open dashboard" : "Create account"}
+                    </Link>
+                  )}
                 </div>
               ))}
             </div>

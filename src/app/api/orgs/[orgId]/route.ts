@@ -1,4 +1,4 @@
-import { currentUser } from "@clerk/nextjs/server"
+import { currentUser } from "@/lib/auth-provider/server"
 import { NextRequest, NextResponse } from "next/server"
 import {
   getClearedCurrentGameCookie,

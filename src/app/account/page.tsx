@@ -1,14 +1,27 @@
 import Link from "next/link"
-import { auth, currentUser } from "@clerk/nextjs/server"
+import { auth, currentUser } from "@/lib/auth-provider/server"
 import { redirect } from "next/navigation"
 import { getDbUser } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { getBillingUsageSummary } from "@/lib/billing"
+import {
+  getManagedBillingDisabledReason,
+  isManagedBillingEnabled,
+  isSelfHostedMode,
+} from "@/lib/deployment-mode"
+import { createPageMetadata } from "@/lib/seo"
 import { getPlanState, PLAN_LABELS } from "@/lib/stripe"
 import {
   isRobloxOAuthConfigured,
 } from "@/lib/roblox-oauth"
-import { AccountActions } from "./account-actions"
+import { LocalAccountActions } from "./account-actions"
+
+export const metadata = createPageMetadata({
+  title: "Account",
+  description: "Private account management area for RblxDash users.",
+  path: "/account",
+  noIndex: true,
+})
 
 const PLAN_PRICES = {
   PRO: "$12 USD / month",
@@ -79,18 +92,17 @@ export default async function AccountPage({
     .join("")
     .slice(0, 2)
     .toUpperCase()
-  const planState = dbUser?.subscription
-    ? getPlanState({
-        plan: dbUser.subscription.plan,
-        createdAt: dbUser.subscription.createdAt,
-        status: dbUser.subscription.status,
-        currentPeriodEnd: dbUser.subscription.currentPeriodEnd,
-      })
-    : null
+  const planState = getPlanState({
+    plan: dbUser?.subscription?.plan,
+    createdAt: dbUser?.subscription?.createdAt,
+    status: dbUser?.subscription?.status,
+    currentPeriodEnd: dbUser?.subscription?.currentPeriodEnd,
+  })
   const joinedWorkspaceCount = dbUser?.memberships.length ?? 0
   const resolvedSearchParams = (await searchParams) ?? {}
   const success = resolvedSearchParams?.success === "1"
   const canceled = resolvedSearchParams?.canceled === "1"
+  const billingDisabled = resolvedSearchParams?.billing === "disabled"
   const robloxStatus = Array.isArray(resolvedSearchParams?.roblox)
     ? resolvedSearchParams.roblox[0]
     : resolvedSearchParams?.roblox
@@ -101,20 +113,33 @@ export default async function AccountPage({
         subscription: dbUser.subscription,
       })
     : null
+  const selfHostedMode = isSelfHostedMode()
+  const managedBillingEnabled = isManagedBillingEnabled()
   const canStartRobloxOAuth = isRobloxOAuthConfigured()
-  const currentPlan = usage?.effectivePlan ?? "FREE"
-  const accountStateLabel = planState
-    ? planState.isTrialActive
-      ? `${planState.displayLabel} · ${planState.trialDaysRemaining} day${
-          planState.trialDaysRemaining === 1 ? "" : "s"
-        } left`
-      : usage?.displayPlanLabel ?? planState.displayLabel
-    : usage?.displayPlanLabel ?? "Free"
-  const accountStateCopy = planState?.isTrialActive
+  const HostedAccountActions = selfHostedMode
+    ? null
+    : (await import("./hosted-account-actions")).default
+  const currentPlan = usage?.effectivePlan ?? planState.effectivePlan
+  const accountStateLabel = planState.isTrialActive
+    ? `${planState.displayLabel} · ${planState.trialDaysRemaining} day${
+        planState.trialDaysRemaining === 1 ? "" : "s"
+      } left`
+    : usage?.displayPlanLabel ?? planState.displayLabel
+  const accountStateCopy = selfHostedMode
+    ? "This deployment runs in self-host mode with hosted billing disabled."
+    : planState.isTrialActive
     ? `Your account unlocks ${PLAN_LABELS[planState.effectivePlan]} features until ${formatDate(planState.trialEndsAt)}.`
     : usage?.effectivePlan === "FREE"
       ? "This account starts on the Free plan with 1 workspace and 1 game included. Upgrade anytime to unlock more capacity."
       : "Billing is active for this account."
+  const securityLabel = selfHostedMode
+    ? clerkUser?.passwordEnabled
+      ? "Local password enabled"
+      : "Local password not set"
+    : clerkUser?.passwordEnabled
+      ? "Password enabled"
+      : "Password not set"
+  const identityProviderLabel = selfHostedMode ? "Built-in local auth" : "Clerk"
 
   return (
     <div className="min-h-screen bg-[#1a1a1a] text-white">
@@ -145,6 +170,12 @@ export default async function AccountPage({
 
           {canceled ? (
             <div className="rd-banner rd-banner-warning mt-8">Checkout canceled.</div>
+          ) : null}
+
+          {billingDisabled ? (
+            <div className="rd-banner rd-banner-warning mt-8">
+              {getManagedBillingDisabledReason()}
+            </div>
           ) : null}
 
           {robloxStatus === "connected" ? (
@@ -203,9 +234,7 @@ export default async function AccountPage({
                 </div>
                 <div className="rd-card-muted px-4 py-4">
                   <p className="rd-label">Security</p>
-                  <p className="mt-2 text-sm font-medium text-white">
-                    {clerkUser?.passwordEnabled ? "Password enabled" : "Password not set"}
-                  </p>
+                  <p className="mt-2 text-sm font-medium text-white">{securityLabel}</p>
                 </div>
                 <div className="rd-card-muted px-4 py-4">
                   <p className="rd-label">Workspaces</p>
@@ -220,7 +249,7 @@ export default async function AccountPage({
                   Member since {formatDate(dbUser?.createdAt ?? null)}
                 </span>
                 <span className="rd-pill">
-                  Identity handled by Clerk
+                  Identity handled by {identityProviderLabel}
                 </span>
               </div>
             </section>
@@ -368,17 +397,21 @@ export default async function AccountPage({
                     Profile and security
                   </h2>
                   <p className="mt-2 text-sm leading-6 text-[#9ca3af]">
-                    Open Clerk only when you actually need to edit something.
+                    {selfHostedMode
+                      ? "This deployment uses built-in local authentication."
+                      : "Open Clerk only when you actually need to edit something."}
                   </p>
                 </div>
 
                 <span className="rd-pill">
-                  Modal-based
+                  {selfHostedMode ? "Built-in" : "Modal-based"}
                 </span>
               </div>
 
               <div className="mt-5">
-                <AccountActions />
+                {selfHostedMode || !HostedAccountActions
+                  ? <LocalAccountActions />
+                  : <HostedAccountActions />}
               </div>
             </section>
 
@@ -399,7 +432,13 @@ export default async function AccountPage({
                 </span>
               </div>
 
-              {usage?.effectivePlan === "FREE" ? (
+              {selfHostedMode ? (
+                <div className="rd-banner rd-banner-success mt-5">
+                  Hosted billing is disabled on this deployment. Plan limits are unlocked for the self-hosted edition.
+                </div>
+              ) : null}
+
+              {!selfHostedMode && usage?.effectivePlan === "FREE" ? (
                 <div className="rd-banner rd-banner-warning mt-5">
                   This account is currently on the Free plan. Upgrade to start a paid trial and unlock more games, workspaces, and features.
                 </div>
@@ -436,7 +475,13 @@ export default async function AccountPage({
                 </div>
               </div>
 
-              {currentPlan === "FREE" ? (
+              {!managedBillingEnabled ? (
+                <div className="mt-5 rounded-xl border border-dashed border-[#3a3a3a] bg-[#1d1d1d] p-5">
+                  <p className="text-sm leading-6 text-[#9ca3af]">
+                    {getManagedBillingDisabledReason()} Use the current deployment plan as-is, or configure Stripe later if you want hosted checkout and billing portal access.
+                  </p>
+                </div>
+              ) : currentPlan === "FREE" ? (
                 <div className="mt-5 grid gap-3 lg:grid-cols-2">
                   <Link
                     href="/start-trial"

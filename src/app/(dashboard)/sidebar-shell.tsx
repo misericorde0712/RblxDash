@@ -2,12 +2,19 @@
 
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
+import dynamic from "next/dynamic"
 import { usePathname } from "next/navigation"
-import { SignOutButton, UserButton } from "@clerk/nextjs"
 import type { ReactNode } from "react"
 import type { OrgRole } from "@prisma/client"
 import GameSwitcher from "./game-switcher"
 import SidebarNav from "./sidebar-nav"
+
+const HostedUserAvatar = dynamic(() => import("./hosted-user-avatar"), {
+  ssr: false,
+})
+const HostedSignOutButton = dynamic(() => import("./hosted-sign-out-button"), {
+  ssr: false,
+})
 
 
 type GameOption = {
@@ -32,6 +39,9 @@ export default function SidebarShell({
   planLabel = "Free",
   isTrialActive = false,
   trialDaysRemaining = 0,
+  authMode,
+  accountLabel,
+  accountInitials,
 }: {
   children: ReactNode
   orgName: string
@@ -41,6 +51,9 @@ export default function SidebarShell({
   planLabel?: string
   isTrialActive?: boolean
   trialDaysRemaining?: number
+  authMode: "clerk" | "local"
+  accountLabel: string
+  accountInitials: string
 }) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -70,6 +83,77 @@ export default function SidebarShell({
       } catch {}
       return next
     })
+  }
+
+  const isHostedAuth = authMode === "clerk"
+
+  function renderAvatar() {
+    if (isHostedAuth) {
+      return <HostedUserAvatar />
+    }
+
+    return (
+      <span className="text-xs font-semibold uppercase tracking-[0.08em] text-white">
+        {accountInitials}
+      </span>
+    )
+  }
+
+  function renderCollapsedLogoutButton() {
+    const button = (
+      <button
+        type={isHostedAuth ? "button" : "submit"}
+        title="Log out"
+        className="flex h-7 w-7 items-center justify-center rounded-lg border transition"
+        style={{
+          borderColor: "rgba(248,113,113,0.22)",
+          background: "rgba(248,113,113,0.08)",
+          color: "#fecaca",
+        }}
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+          <polyline points="16 17 21 12 16 7" />
+          <line x1="21" y1="12" x2="9" y2="12" />
+        </svg>
+      </button>
+    )
+
+    if (isHostedAuth) {
+      return <HostedSignOutButton>{button}</HostedSignOutButton>
+    }
+
+    return (
+      <form action="/api/local-auth/sign-out" method="POST">
+        {button}
+      </form>
+    )
+  }
+
+  function renderExpandedLogoutButton() {
+    const button = (
+      <button
+        type={isHostedAuth ? "button" : "submit"}
+        className="mt-3 flex w-full items-center justify-center rounded-lg border px-3 py-2 text-sm font-semibold transition"
+        style={{
+          borderColor: "rgba(248,113,113,0.22)",
+          background: "rgba(248,113,113,0.08)",
+          color: "#fecaca",
+        }}
+      >
+        Log out
+      </button>
+    )
+
+    if (isHostedAuth) {
+      return <HostedSignOutButton>{button}</HostedSignOutButton>
+    }
+
+    return (
+      <form action="/api/local-auth/sign-out" method="POST">
+        {button}
+      </form>
+    )
   }
 
   return (
@@ -213,27 +297,10 @@ export default function SidebarShell({
                     className="flex h-full w-full items-center justify-center rounded-full"
                     style={{ background: "#222222" }}
                   >
-                    <UserButton />
+                    {renderAvatar()}
                   </div>
                 </div>
-                <SignOutButton redirectUrl="/">
-                  <button
-                    type="button"
-                    title="Log out"
-                    className="flex h-7 w-7 items-center justify-center rounded-lg border transition"
-                    style={{
-                      borderColor: "rgba(248,113,113,0.22)",
-                      background: "rgba(248,113,113,0.08)",
-                      color: "#fecaca",
-                    }}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
-                      <polyline points="16 17 21 12 16 7" />
-                      <line x1="21" y1="12" x2="9" y2="12" />
-                    </svg>
-                  </button>
-                </SignOutButton>
+                {renderCollapsedLogoutButton()}
               </div>
             ) : (
               /* Expanded: full user card */
@@ -251,12 +318,12 @@ export default function SidebarShell({
                         className="flex h-full w-full items-center justify-center rounded-full"
                         style={{ background: "#222222" }}
                       >
-                        <UserButton />
+                        {renderAvatar()}
                       </div>
                     </div>
                     <div className="min-w-0">
                       <p className="rd-label">Account</p>
-                      <p className="truncate text-sm font-medium text-white">Signed in</p>
+                      <p className="truncate text-sm font-medium text-white">{accountLabel}</p>
                     </div>
                   </div>
                   <Link href="/account" className="rd-link-accent text-xs font-semibold">
@@ -264,19 +331,7 @@ export default function SidebarShell({
                   </Link>
                 </div>
 
-                <SignOutButton redirectUrl="/">
-                  <button
-                    type="button"
-                    className="mt-3 flex w-full items-center justify-center rounded-lg border px-3 py-2 text-sm font-semibold transition"
-                    style={{
-                      borderColor: "rgba(248,113,113,0.22)",
-                      background: "rgba(248,113,113,0.08)",
-                      color: "#fecaca",
-                    }}
-                  >
-                    Log out
-                  </button>
-                </SignOutButton>
+                {renderExpandedLogoutButton()}
               </>
             )}
           </div>

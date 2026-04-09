@@ -6,6 +6,10 @@ import type {
 } from "@prisma/client"
 import type Stripe from "stripe"
 import { prisma } from "@/lib/prisma"
+import {
+  getManagedBillingDisabledReason,
+  isManagedBillingEnabled,
+} from "@/lib/deployment-mode"
 import { canManageBilling } from "@/lib/org-members"
 import {
   hasActiveBillingAccess,
@@ -155,6 +159,10 @@ export async function ensureStripeCustomerForUser(params: {
   subscription: Subscription | null
   dbUser: User
 }) {
+  if (!isManagedBillingEnabled()) {
+    throw new Error(getManagedBillingDisabledReason())
+  }
+
   const { subscription, dbUser } = params
 
   if (subscription && hasRealStripeCustomerId(subscription.stripeCustomerId)) {

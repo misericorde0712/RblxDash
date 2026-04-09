@@ -2,11 +2,22 @@ import { NextRequest, NextResponse } from "next/server"
 import { OrgRole } from "@prisma/client"
 import { getCurrentOrgForRoute } from "@/lib/auth"
 import { canManageBilling, ensureStripeCustomerForUser } from "@/lib/billing"
+import {
+  getManagedBillingDisabledReason,
+  isManagedBillingEnabled,
+} from "@/lib/deployment-mode"
 import { getRequestOrigin } from "@/lib/request-url"
 import { stripe } from "@/lib/stripe"
 
 export async function POST(req: NextRequest) {
   try {
+    if (!isManagedBillingEnabled()) {
+      return NextResponse.json(
+        { error: getManagedBillingDisabledReason() },
+        { status: 503 }
+      )
+    }
+
     const currentOrgResult = await getCurrentOrgForRoute(req, OrgRole.MODERATOR)
     if ("response" in currentOrgResult) {
       return currentOrgResult.response

@@ -10,6 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "encrypt:open-cloud-keys": "node scripts/encrypt-open-cloud-keys.mjs",
+    "db:deploy": "prisma migrate deploy",
+    "db:push": "prisma db push",
     "db:seed": "npx tsx prisma/seed.ts"
   },
   "dependencies": {

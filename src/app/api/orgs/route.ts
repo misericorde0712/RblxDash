@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { currentUser } from "@clerk/nextjs/server"
+import { currentUser } from "@/lib/auth-provider/server"
 import type { Prisma } from "@prisma/client"
 import { z } from "zod"
 import { getCurrentOrgCookie, getDbUser } from "@/lib/auth"

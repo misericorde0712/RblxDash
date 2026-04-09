@@ -3,6 +3,10 @@ import { OrgRole } from "@prisma/client"
 import { z } from "zod"
 import { getCurrentOrgForRoute } from "@/lib/auth"
 import { canManageBilling, ensureStripeCustomerForUser } from "@/lib/billing"
+import {
+  getManagedBillingDisabledReason,
+  isManagedBillingEnabled,
+} from "@/lib/deployment-mode"
 import { getRequestOrigin } from "@/lib/request-url"
 import { getPlanState, getPriceIdForPlan, stripe } from "@/lib/stripe"
 
@@ -12,6 +16,13 @@ const CheckoutSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    if (!isManagedBillingEnabled()) {
+      return NextResponse.json(
+        { error: getManagedBillingDisabledReason() },
+        { status: 503 }
+      )
+    }
+
     const currentOrgResult = await getCurrentOrgForRoute(req, OrgRole.MODERATOR)
     if ("response" in currentOrgResult) {
       return currentOrgResult.response

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { currentUser } from "@clerk/nextjs/server"
+import { currentUser } from "@/lib/auth-provider/server"
 import { prisma } from "@/lib/prisma"
 import { generateApiKey, hashApiKey, getKeyDisplayPrefix } from "@/lib/api-key"
 import { apiError, apiSuccess, apiCreated } from "@/lib/api-auth"

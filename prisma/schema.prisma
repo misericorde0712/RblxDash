@@ -13,6 +13,7 @@ model User {
   clerkId   String   @unique
   email     String   @unique
   name      String?
+  passwordHash String?
   createdAt DateTime @default(now())
 
   memberships           OrgMember[]

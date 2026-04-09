@@ -1,10 +1,19 @@
 import Link from "next/link"
-import type { Metadata } from "next"
+import { createPageMetadata } from "@/lib/seo"
 
-export const metadata: Metadata = {
-  title: "Why RblxDash",
-  description: "Why studios choose RblxDash to manage their Roblox game operations.",
-}
+export const metadata = createPageMetadata({
+  title: "Why Roblox Studios Choose RblxDash",
+  description:
+    "See why Roblox studios use RblxDash for live server monitoring, player analytics, moderation workflows, and open source transparency.",
+  path: "/why",
+  keywords: [
+    "why RblxDash",
+    "Roblox studio tools",
+    "Roblox moderation dashboard",
+    "Roblox analytics software",
+    "open source Roblox SaaS",
+  ],
+})
 
 const COMPARISONS = [
   {
@@ -29,7 +38,7 @@ const COMPARISONS = [
   },
   {
     problem: "Expensive per-game pricing",
-    solution: "Simple plans: Pro at $12/mo for 5 games, Studio at $35/mo for unlimited",
+    solution: "Simple plans: Pro at $15/mo for up to 3 games, Studio at $40/mo for unlimited",
   },
 ]
 

@@ -1,10 +1,19 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import { createPageMetadata } from "@/lib/seo"
 
-export const metadata: Metadata = {
-  title: "Changelog",
-  description: "What's new in RblxDash — release notes and updates.",
-}
+export const metadata: Metadata = createPageMetadata({
+  title: "Product Changelog",
+  description:
+    "Follow RblxDash releases, feature launches, product improvements, and bug fixes for the Roblox operations dashboard.",
+  path: "/changelog",
+  keywords: [
+    "RblxDash changelog",
+    "RblxDash releases",
+    "Roblox analytics dashboard updates",
+    "product release notes",
+  ],
+})
 
 type Release = {
   version: string

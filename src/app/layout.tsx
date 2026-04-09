@@ -1,58 +1,99 @@
-import type { Metadata } from "next"
-import { ClerkProvider } from "@clerk/nextjs"
+import type { Metadata, Viewport } from "next"
 import { ErrorBoundary } from "@/components/error-boundary"
+import { isSelfHostedMode } from "@/lib/deployment-mode"
+import {
+  absoluteUrl,
+  DEFAULT_DESCRIPTION,
+  DEFAULT_KEYWORDS,
+  INDEXABLE_ROBOTS,
+  SITE_NAME,
+  SITE_URL,
+} from "@/lib/seo"
 import "./globals.css"
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://rblxdash.com"
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#e8822a",
+  colorScheme: "dark",
+}
 
 export const metadata: Metadata = {
   title: {
-    default: "RblxDash — Game Operations for Roblox Studios",
-    template: "%s | RblxDash",
+    default: SITE_NAME,
+    template: `%s | ${SITE_NAME}`,
   },
-  description:
-    "Live operations, analytics, player investigation, and moderation workflows for Roblox games. Open source.",
-  metadataBase: new URL(APP_URL),
+  description: DEFAULT_DESCRIPTION,
+  applicationName: SITE_NAME,
+  metadataBase: new URL(SITE_URL),
+  keywords: DEFAULT_KEYWORDS,
+  category: "software",
+  referrer: "origin-when-cross-origin",
+  creator: SITE_NAME,
+  publisher: SITE_NAME,
+  manifest: "/manifest.json",
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  icons: {
+    icon: [{ url: "/favicon.ico" }],
+    shortcut: ["/favicon.ico"],
+    apple: [{ url: "/apple-icon" }],
+  },
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: APP_URL,
-    siteName: "RblxDash",
-    title: "RblxDash — Game Operations for Roblox Studios",
-    description:
-      "Live metrics, player analytics, moderation, and economy tracking — all in one dashboard. Fully open source.",
+    url: SITE_URL,
+    siteName: SITE_NAME,
+    title: SITE_NAME,
+    description: DEFAULT_DESCRIPTION,
+    images: [
+      {
+        url: absoluteUrl("/opengraph-image"),
+        width: 1200,
+        height: 630,
+        alt: SITE_NAME,
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "RblxDash — Game Operations for Roblox Studios",
-    description:
-      "Live metrics, player analytics, moderation, and economy tracking — all in one dashboard. Fully open source.",
+    title: SITE_NAME,
+    description: DEFAULT_DESCRIPTION,
+    images: [absoluteUrl("/opengraph-image")],
   },
-  robots: {
-    index: true,
-    follow: true,
-  },
+  robots: INDEXABLE_ROBOTS,
 }
 
-export default function RootLayout({
+async function AppProviders({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  if (isSelfHostedMode()) {
+    return children
+  }
+
+  const { ClerkProvider } = await import("@clerk/nextjs")
+  return <ClerkProvider>{children}</ClerkProvider>
+}
+
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
   return (
-    <ClerkProvider>
-      <html lang="en" className="h-full">
-        <head>
-          <link rel="manifest" href="/manifest.json" />
-          <meta name="theme-color" content="#e8822a" />
-          <link rel="apple-touch-icon" href="/icon-192.png" />
-        </head>
-        <body className="h-full antialiased">
+    <html lang="en" className="h-full">
+      <body className="h-full antialiased">
+        <AppProviders>
           <ErrorBoundary>
             {children}
           </ErrorBoundary>
-        </body>
-      </html>
-    </ClerkProvider>
+        </AppProviders>
+      </body>
+    </html>
   )
 }

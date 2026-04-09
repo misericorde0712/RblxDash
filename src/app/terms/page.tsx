@@ -1,4 +1,12 @@
 import LegalPage from "@/components/legal-page"
+import { createPageMetadata } from "@/lib/seo"
+
+export const metadata = createPageMetadata({
+  title: "Terms of Service",
+  description:
+    "Review the RblxDash terms of service covering service scope, billing, responsibilities, and product availability.",
+  path: "/terms",
+})
 
 export default function TermsPage() {
   return (

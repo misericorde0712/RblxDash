@@ -50,5 +50,8 @@ next-env.d.ts
 # deploy artifacts
 *.tgz
 
+# creator kit raw media
+docs/creator-kit/assets/*.mp4
+
 # claude code config (personal)
 .claude/

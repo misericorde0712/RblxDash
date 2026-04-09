@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
-import { currentUser } from "@clerk/nextjs/server"
+import { currentUser } from "@/lib/auth-provider/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { upsertDbUserFromClerkUser } from "@/lib/auth"
 import { ensureStripeCustomerForUser } from "@/lib/billing"
+import {
+  getManagedBillingDisabledReason,
+  isManagedBillingEnabled,
+} from "@/lib/deployment-mode"
 import { getRequestOrigin } from "@/lib/request-url"
 import { FREE_TRIAL_DAYS, getPlanState, getPriceIdForPlan, stripe } from "@/lib/stripe"
 
@@ -13,6 +17,13 @@ const CheckoutSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    if (!isManagedBillingEnabled()) {
+      return NextResponse.json(
+        { error: getManagedBillingDisabledReason() },
+        { status: 503 }
+      )
+    }
+
     const clerkUser = await currentUser()
 
     if (!clerkUser) {

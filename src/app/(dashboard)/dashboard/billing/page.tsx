@@ -2,6 +2,11 @@ import type { ReactNode } from "react"
 import Link from "next/link"
 import { requireCurrentOrg } from "@/lib/auth"
 import { getBillingUsageSummary } from "@/lib/billing"
+import {
+  getManagedBillingDisabledReason,
+  isManagedBillingEnabled,
+  isSelfHostedMode,
+} from "@/lib/deployment-mode"
 import { getPlanState } from "@/lib/stripe"
 import { redirectToBillingPortal, redirectToCheckout } from "./actions"
 import { BillingIntervalToggle } from "./billing-interval-toggle"
@@ -148,23 +153,24 @@ export default async function BillingPage({
     currentOrgId:   org.id,
   })
 
-  const planState = billingSubscription
-    ? getPlanState({
-        plan:             billingSubscription.plan,
-        createdAt:        billingSubscription.createdAt,
-        status:           billingSubscription.status,
-        currentPeriodEnd: billingSubscription.currentPeriodEnd,
-      })
-    : null
+  const planState = getPlanState({
+    plan: billingSubscription?.plan,
+    createdAt: billingSubscription?.createdAt,
+    status: billingSubscription?.status,
+    currentPeriodEnd: billingSubscription?.currentPeriodEnd,
+  })
 
   const resolvedParams = (await searchParams) ?? {}
   const success  = resolvedParams?.success  === "1"
   const canceled = resolvedParams?.canceled === "1"
+  const billingDisabled = resolvedParams?.billing === "disabled"
   const interval = (resolvedParams?.interval as Interval) || "monthly"
+  const managedBillingEnabled = isManagedBillingEnabled()
+  const selfHostedMode = isSelfHostedMode()
 
   const currentPlan  = usage.effectivePlan
   const hasActivePlan = usage.hasActivePlan
-  const isTrial       = planState?.isTrialActive ?? false
+  const isTrial       = planState.isTrialActive
   const isFreePlan = currentPlan === "FREE"
 
   function formatDate(d: Date | null | undefined) {
@@ -217,7 +223,7 @@ export default async function BillingPage({
                   className="rounded-full px-2.5 py-0.5 text-xs font-semibold"
                   style={{ background: "rgba(232,130,42,0.12)", color: "#e8822a", border: "1px solid rgba(232,130,42,0.25)" }}
                 >
-                  Trial — {planState!.trialDaysRemaining} day{planState!.trialDaysRemaining === 1 ? "" : "s"} left
+                  Trial — {planState.trialDaysRemaining} day{planState.trialDaysRemaining === 1 ? "" : "s"} left
                 </span>
               )}
               {!hasActivePlan && !isFreePlan && (
@@ -234,14 +240,14 @@ export default async function BillingPage({
                 Renews {formatDate(billingSubscription.currentPeriodEnd)}
               </p>
             )}
-            {isTrial && planState?.trialEndsAt && (
+            {isTrial && planState.trialEndsAt && (
               <p className="mt-1 text-sm" style={{ color: "#888" }}>
                 Trial ends {formatDate(planState.trialEndsAt)}
               </p>
             )}
           </div>
 
-          {hasActivePlan && (
+          {hasActivePlan && managedBillingEnabled && (
             <form action={redirectToBillingPortal}>
               <button
                 type="submit"
@@ -285,12 +291,36 @@ export default async function BillingPage({
         )}
       </div>
 
+      {billingDisabled && (
+        <div
+          className="mb-6 rounded-xl px-4 py-3 text-sm"
+          style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.18)", color: "#fbbf24" }}
+        >
+          {getManagedBillingDisabledReason()}
+        </div>
+      )}
+
+      {!managedBillingEnabled && (
+        <div
+          className="mb-6 rounded-2xl p-5 text-sm"
+          style={{ background: "#1e1e1e", border: "1px solid #2a2a2a", color: "#9ca3af" }}
+        >
+          {selfHostedMode
+            ? "This deployment uses self-host mode. Hosted checkout and customer portal are disabled, and plan limits are unlocked."
+            : "Stripe checkout is not configured on this deployment yet. Configure Stripe if you want hosted upgrades and subscription management."}
+        </div>
+      )}
+
       {/* ── Interval toggle ─────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <SectionTitle>
-          {hasActivePlan ? "Your plan options" : "Choose a plan — 7-day free trial on all paid plans"}
+          {!managedBillingEnabled
+            ? "Current self-hosted access"
+            : hasActivePlan
+              ? "Your plan options"
+              : "Choose a plan — 7-day free trial on all paid plans"}
         </SectionTitle>
-        <BillingIntervalToggle current={interval} />
+        {managedBillingEnabled ? <BillingIntervalToggle current={interval} /> : null}
       </div>
 
       {/* ── Plan comparison ───────────────────────────────────────────────── */}
@@ -374,7 +404,14 @@ export default async function BillingPage({
               </ul>
 
               {/* CTA */}
-              {isCurrent ? (
+              {!managedBillingEnabled ? (
+                <div
+                  className="rounded-xl px-4 py-2.5 text-center text-sm font-medium"
+                  style={{ background: "#252525", color: "#888", border: "1px solid #2a2a2a" }}
+                >
+                  {isCurrent ? "Current self-hosted plan" : "Hosted billing disabled"}
+                </div>
+              ) : isCurrent ? (
                 <div
                   className="rounded-xl px-4 py-2.5 text-center text-sm font-medium"
                   style={{ background: "#252525", color: "#555", border: "1px solid #2a2a2a" }}
@@ -462,12 +499,18 @@ export default async function BillingPage({
         style={{ background: "#1e1e1e", border: "1px solid #2a2a2a" }}
       >
         <span style={{ color: "#888" }}>
-          All plans are billed in USD. Payments are processed by Stripe.
-          For invoice questions, go to{" "}
-          <Link href="/dashboard/billing" className="underline" style={{ color: "#e8822a" }}>
-            billing
-          </Link>
-          .
+          {managedBillingEnabled ? (
+            <>
+              All plans are billed in USD. Payments are processed by Stripe.
+              For invoice questions, go to{" "}
+              <Link href="/account" className="underline" style={{ color: "#e8822a" }}>
+                your account
+              </Link>
+              .
+            </>
+          ) : (
+            "Billing is managed outside this deployment."
+          )}
         </span>
       </div>
 

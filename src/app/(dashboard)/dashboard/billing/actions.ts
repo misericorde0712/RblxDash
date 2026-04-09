@@ -1,11 +1,14 @@
 "use server"
 
-import { currentUser } from "@clerk/nextjs/server"
+import { currentUser } from "@/lib/auth-provider/server"
 import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { upsertDbUserFromClerkUser } from "@/lib/auth"
 import { ensureStripeCustomerForUser } from "@/lib/billing"
+import {
+  isManagedBillingEnabled,
+} from "@/lib/deployment-mode"
 import { getRequestOrigin } from "@/lib/request-url"
 import {
   FREE_TRIAL_DAYS,
@@ -23,6 +26,10 @@ function getAppUrl(headersList: Awaited<ReturnType<typeof headers>>) {
 }
 
 export async function redirectToBillingPortal() {
+  if (!isManagedBillingEnabled()) {
+    redirect("/dashboard/billing?billing=disabled")
+  }
+
   const clerkUser = await currentUser()
   if (!clerkUser) redirect("/login")
 
@@ -47,6 +54,10 @@ export async function redirectToBillingPortal() {
 }
 
 export async function redirectToCheckout(plan: PaidPlan, interval: BillingInterval = "monthly") {
+  if (!isManagedBillingEnabled()) {
+    redirect("/dashboard/billing?billing=disabled")
+  }
+
   const clerkUser = await currentUser()
   if (!clerkUser) redirect("/login")
 

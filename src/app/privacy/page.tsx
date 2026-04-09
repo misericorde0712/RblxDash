@@ -1,4 +1,12 @@
 import LegalPage from "@/components/legal-page"
+import { createPageMetadata } from "@/lib/seo"
+
+export const metadata = createPageMetadata({
+  title: "Privacy Policy",
+  description:
+    "Read the RblxDash privacy policy to understand what data is stored, how Roblox game data is handled, and how credentials are protected.",
+  path: "/privacy",
+})
 
 export default function PrivacyPage() {
   return (

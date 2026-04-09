@@ -1,8 +1,8 @@
-import { currentUser } from "@clerk/nextjs/server"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import type { NextRequest } from "next/server"
 import { NextResponse } from "next/server"
+import { currentUser } from "@/lib/auth-provider/server"
 import { prisma } from "@/lib/prisma"
 import type { User, OrgMember, Organization, Subscription, Plan } from "@prisma/client"
 import { OrgRole } from "@prisma/client"
@@ -10,7 +10,7 @@ import { hasRequiredRole } from "@/lib/org-members"
 
 export { hasRequiredRole }
 
-type AuthenticatedClerkUser = NonNullable<Awaited<ReturnType<typeof currentUser>>>
+type AuthenticatedUser = NonNullable<Awaited<ReturnType<typeof currentUser>>>
 type MembershipWithOrg = OrgMember & {
   org: Organization & {
     billingOwner: User & {
@@ -62,7 +62,7 @@ export type AvailableGame = {
 }
 
 export type CurrentOrgContext = {
-  clerkUser: AuthenticatedClerkUser
+  clerkUser: AuthenticatedUser
   dbUser: User
   member: OrgMember
   org: Organization
@@ -98,7 +98,7 @@ export async function getDbUser(
 }
 
 export async function upsertDbUserFromClerkUser(
-  clerkUser: AuthenticatedClerkUser
+  clerkUser: AuthenticatedUser
 ): Promise<User> {
   const email = getPrimaryEmailAddress(clerkUser)
   const name = getDisplayName(clerkUser)
@@ -164,7 +164,7 @@ export async function upsertDbUserFromClerkUser(
   })
 }
 
-async function getAuthenticatedClerkUser(): Promise<AuthenticatedClerkUser> {
+async function getAuthenticatedClerkUser(): Promise<AuthenticatedUser> {
   const clerkUser = await currentUser()
   if (!clerkUser) {
     throw new CurrentOrgError("UNAUTHENTICATED", "/sign-in")

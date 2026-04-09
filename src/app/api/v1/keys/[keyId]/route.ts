@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { currentUser } from "@clerk/nextjs/server"
+import { currentUser } from "@/lib/auth-provider/server"
 import { prisma } from "@/lib/prisma"
 import { apiError, apiSuccess } from "@/lib/api-auth"
 import { getPlanFromSubscription } from "@/lib/stripe"
